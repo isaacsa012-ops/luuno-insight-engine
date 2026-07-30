@@ -200,3 +200,32 @@
 .react-flow__controls-button:hover {
   background: var(--color-surface-raised);
 }
+
+/* PDF export — audit sections print as clean page blocks */
+@utility print-block {
+  break-inside: avoid;
+}
+
+@media print {
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.15 0 0);
+    --surface: oklch(1 0 0);
+    --surface-raised: oklch(0.98 0 0);
+    --border: oklch(0.85 0 0);
+    --border-strong: oklch(0.7 0 0);
+    --muted-foreground: oklch(0.4 0 0);
+    --subtle: oklch(0.5 0 0);
+  }
+  aside,
+  header,
+  nav,
+  button,
+  input[type="range"],
+  select {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+}

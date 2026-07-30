@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuditRouteImport } from './routes/audit'
+import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as ProspectsIndexRouteImport } from './routes/prospects.index'
 import { Route as ProspectsProspectIdRouteImport } from './routes/prospects.$prospectId'
 
@@ -22,6 +23,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuditRoute = AuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PipelineRoute = PipelineRouteImport.update({
+  id: '/pipeline',
+  path: '/pipeline',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProspectsIndexRoute = ProspectsIndexRouteImport.update({
@@ -38,12 +44,14 @@ const ProspectsProspectIdRoute = ProspectsProspectIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/pipeline': typeof PipelineRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
   '/prospects/': typeof ProspectsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/pipeline': typeof PipelineRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
   '/prospects': typeof ProspectsIndexRoute
 }
@@ -51,20 +59,29 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/audit': typeof AuditRoute
+  '/pipeline': typeof PipelineRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
   '/prospects/': typeof ProspectsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/audit' | '/prospects/$prospectId' | '/prospects/'
+  fullPaths:
+    '/' | '/audit' | '/pipeline' | '/prospects/$prospectId' | '/prospects/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/audit' | '/prospects/$prospectId' | '/prospects'
-  id: '__root__' | '/' | '/audit' | '/prospects/$prospectId' | '/prospects/'
+  to: '/' | '/audit' | '/pipeline' | '/prospects/$prospectId' | '/prospects'
+  id:
+    | '__root__'
+    | '/'
+    | '/audit'
+    | '/pipeline'
+    | '/prospects/$prospectId'
+    | '/prospects/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuditRoute: typeof AuditRoute
+  PipelineRoute: typeof PipelineRoute
   ProspectsProspectIdRoute: typeof ProspectsProspectIdRoute
   ProspectsIndexRoute: typeof ProspectsIndexRoute
 }
@@ -83,6 +100,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pipeline': {
+      id: '/pipeline'
+      path: '/pipeline'
+      fullPath: '/pipeline'
+      preLoaderRoute: typeof PipelineRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/prospects/': {
@@ -105,6 +129,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuditRoute: AuditRoute,
+  PipelineRoute: PipelineRoute,
   ProspectsProspectIdRoute: ProspectsProspectIdRoute,
   ProspectsIndexRoute: ProspectsIndexRoute,
 }

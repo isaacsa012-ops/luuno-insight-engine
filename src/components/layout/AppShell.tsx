@@ -149,8 +149,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-[8px] bg-primary px-3 py-[7px] text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            className="flex w-fit shrink-0 justify-self-end items-center gap-1.5 rounded-[8px] bg-primary px-3 py-[7px] text-[12px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
+
             <Plus className="h-3.5 w-3.5" strokeWidth={2} />
             <span className="hidden sm:inline">New</span>
           </button>

@@ -14,6 +14,7 @@ import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as AuditRouteImport } from './routes/audit'
 import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AuditIndexRouteImport } from './routes/audit.index'
 import { Route as ProspectsIndexRouteImport } from './routes/prospects.index'
 import { Route as ProspectsProspectIdRouteImport } from './routes/prospects.$prospectId'
 
@@ -42,6 +43,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuditIndexRoute = AuditIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuditRoute,
+} as any)
 const ProspectsIndexRoute = ProspectsIndexRouteImport.update({
   id: '/prospects/',
   path: '/prospects/',
@@ -56,29 +62,31 @@ const ProspectsProspectIdRoute = ProspectsProspectIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
-  '/audit': typeof AuditRoute
+  '/audit': typeof AuditRouteWithChildren
   '/pipeline': typeof PipelineRoute
   '/settings': typeof SettingsRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
+  '/audit/': typeof AuditIndexRoute
   '/prospects/': typeof ProspectsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
-  '/audit': typeof AuditRoute
   '/pipeline': typeof PipelineRoute
   '/settings': typeof SettingsRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
+  '/audit': typeof AuditIndexRoute
   '/prospects': typeof ProspectsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/analytics': typeof AnalyticsRoute
-  '/audit': typeof AuditRoute
+  '/audit': typeof AuditRouteWithChildren
   '/pipeline': typeof PipelineRoute
   '/settings': typeof SettingsRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
+  '/audit/': typeof AuditIndexRoute
   '/prospects/': typeof ProspectsIndexRoute
 }
 export interface FileRouteTypes {
@@ -90,15 +98,16 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/settings'
     | '/prospects/$prospectId'
+    | '/audit/'
     | '/prospects/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/analytics'
-    | '/audit'
     | '/pipeline'
     | '/settings'
     | '/prospects/$prospectId'
+    | '/audit'
     | '/prospects'
   id:
     | '__root__'
@@ -108,13 +117,14 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/settings'
     | '/prospects/$prospectId'
+    | '/audit/'
     | '/prospects/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnalyticsRoute: typeof AnalyticsRoute
-  AuditRoute: typeof AuditRoute
+  AuditRoute: typeof AuditRouteWithChildren
   PipelineRoute: typeof PipelineRoute
   SettingsRoute: typeof SettingsRoute
   ProspectsProspectIdRoute: typeof ProspectsProspectIdRoute
@@ -158,6 +168,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/audit/': {
+      id: '/audit/'
+      path: '/'
+      fullPath: '/audit/'
+      preLoaderRoute: typeof AuditIndexRouteImport
+      parentRoute: typeof AuditRoute
+    }
     '/prospects/': {
       id: '/prospects/'
       path: '/prospects'
@@ -175,10 +192,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuditRouteChildren {
+  AuditIndexRoute: typeof AuditIndexRoute
+}
+
+const AuditRouteChildren: AuditRouteChildren = {
+  AuditIndexRoute: AuditIndexRoute,
+}
+
+const AuditRouteWithChildren = AuditRoute._addFileChildren(AuditRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnalyticsRoute: AnalyticsRoute,
-  AuditRoute: AuditRoute,
+  AuditRoute: AuditRouteWithChildren,
   PipelineRoute: PipelineRoute,
   SettingsRoute: SettingsRoute,
   ProspectsProspectIdRoute: ProspectsProspectIdRoute,
@@ -187,13 +214,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

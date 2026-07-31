@@ -187,23 +187,26 @@ function ProspectsPage() {
                     <Link
                       to="/prospects/$prospectId"
                       params={{ prospectId: p.id }}
-                      className="grid grid-cols-1 gap-2 px-5 py-4 transition-colors hover:bg-surface-raised lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_130px_110px_110px_110px] lg:items-center lg:gap-4"
+                      className="grid grid-cols-1 gap-2 px-5 py-4 transition-colors hover:bg-surface-raised lg:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_130px_110px_110px] lg:items-center lg:gap-4"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-medium">{p.company}</p>
                         <p className="truncate text-[11px] text-subtle">
-                          {p.owner || "Owner unknown"} · {relativeDay(p.nextFollowUp)}
+                          {p.industry} · {p.owner || "Owner unknown"} · {relativeDay(p.nextFollowUp)}
                         </p>
                       </div>
-                      <p className="truncate text-[12px] text-muted-foreground">{p.industry}</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-[12px] text-foreground">{p.action.label}</p>
+                        <p className="truncate text-[11px] text-subtle">{p.action.hint}</p>
+                      </div>
                       <div>
                         <StatusPill status={p.status} />
                       </div>
-                      <PriorityTag priority={p.priority} />
-                      <p className="text-[12px] tabular-nums text-muted-foreground">{p.confidence}%</p>
+                      <TierTag tier={p.priorityResult.tier} score={p.priorityResult.score} />
                       <p className="text-[13px] tabular-nums lg:text-right">
                         {currency(p.opportunityValue, true)}
                       </p>
+
                     </Link>
                   </li>
                 </ContextMenuTrigger>

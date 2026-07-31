@@ -30,8 +30,8 @@ function AnalyticsPage() {
 
   const stats = useMemo(() => {
     const total = prospects.length;
-    const sent = prospects.filter((p) => p.pipeline.send_email).length;
-    const replied = prospects.filter((p) => p.pipeline.send_email && p.repliedAt).length;
+    const sent = prospects.filter((p) => p.pipeline.email_sent).length;
+    const replied = prospects.filter((p) => p.pipeline.email_sent && p.repliedAt).length;
 
     const calls = prospects.filter((p) => p.pipeline.discovery_call).length;
     const won = prospects.filter((p) => p.status === "closed_won");

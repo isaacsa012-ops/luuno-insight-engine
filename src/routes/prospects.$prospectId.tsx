@@ -36,9 +36,10 @@ const TABS = [
 ] as const;
 
 export const Route = createFileRoute("/prospects/$prospectId")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: typeof search.tab === "string" ? search.tab : "overview",
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
   }),
+
   head: () => ({
     meta: [
       { title: "Prospect Workspace · Luuno Growth Engine" },

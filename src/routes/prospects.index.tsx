@@ -134,11 +134,12 @@ function ProspectsPage() {
           <div className="flex h-9 items-center rounded-[8px] border border-border bg-surface p-0.5">
             {(
               [
+                ["priority", "Priority"],
                 ["value", "Value"],
-                ["confidence", "Confidence"],
                 ["recent", "Recent"],
               ] as const
             ).map(([key, label]) => (
+
               <button
                 key={key}
                 type="button"

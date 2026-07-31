@@ -80,59 +80,121 @@ export const RESEARCH_SPEC: ResearchFieldSpec[] = [
 ];
 
 export function buildResearchPrompt(p: Prospect): string {
+  const known = [
+    p.owner ? `Owner / contact: ${p.owner}${p.email ? ` (${p.email})` : ""}` : null,
+    p.phone ? `Phone: ${p.phone}` : null,
+    p.employees ? `Approx headcount: ${p.employees}` : null,
+    p.techStack.length ? `Known tech: ${p.techStack.join(", ")}` : null,
+    p.whyNow.length ? `Observed signals: ${p.whyNow.join(", ")}` : null,
+    p.notes.trim() ? `Existing internal notes: ${p.notes.trim()}` : null,
+  ].filter(Boolean);
+
   return `You are a business systems analyst producing an operational intelligence brief for Luuno.
 
 COMPANY: ${p.company}
 WEBSITE: ${p.website || "unknown"}
 INDUSTRY: ${p.industry || "unknown"}
-OWNER / CONTACT: ${p.owner || "unknown"}${p.email ? ` (${p.email})` : ""}
-APPROX HEADCOUNT: ${p.employees || "unknown"}
-KNOWN TECH: ${p.techStack.length ? p.techStack.join(", ") : "unknown"}
+LOCATION: ${p.location || "unknown"}
 
-Research this company and return a structured brief. Be specific and evidence-led.
-Never speculate without labelling the assumption. Write in plain operator language,
-no marketing tone, no mention of AI.
+KNOWN INFORMATION
+${known.length ? known.map((k) => `- ${k}`).join("\n") : "- None recorded yet"}
 
-Return your answer using EXACTLY these headings, in this order, each on its own line
-prefixed with "## ". Leave no heading empty.
+RESEARCH INSTRUCTIONS
+1. Research the company using public sources: website, maps listings, reviews, job posts, socials, press.
+2. Be specific and evidence-led. Label every assumption as an assumption.
+3. Describe how the business actually operates today, not how it markets itself.
+4. Identify where throughput is constrained by a person or a manual step.
+5. Write in plain operator language. No marketing tone. Never mention AI.
 
-## BUSINESS SUMMARY
-What the business does, how it makes money, scale and market position.
+OUTPUT FORMAT
+Return ONE JSON object and nothing else — no prose, no code fence commentary.
+Use exactly these keys, all values strings except opportunityValue (number):
 
-## CUSTOMER JOURNEY
-The real path a customer takes from first contact to delivered outcome.
+{
+  "businessSummary": "",
+  "customerJourney": "",
+  "decisionMaker": "",
+  "currentTechnology": "",
+  "bottlenecks": "",
+  "opportunities": "",
+  "whyNow": "",
+  "opportunityValue": 0,
+  "internalNotes": ""
+}
 
-## CURRENT TECHNOLOGY
-Systems in use, how they connect, where data is re-entered by hand.
-
-## OBSERVED BOTTLENECKS
-Numbered list. Each bottleneck must name the constrained step and who owns it.
-
-## GROWTH OPPORTUNITIES
-Numbered list. Each opportunity must state the measurable outcome it unlocks.
-
-## DECISION MAKER
-Name, role, priorities, and the most credible way to reach them.
-
-## WHY NOW
-The specific trigger event and the evidence behind it.
-
-## ESTIMATED OPPORTUNITY VALUE
-A single annualised USD figure, digits only, e.g. 96000
-
-## INTERNAL NOTES
-Positioning guidance, objections to expect, language to avoid.`;
+Field guidance:
+- businessSummary: what it does, how it makes money, scale, market position.
+- customerJourney: the real path from first contact to delivered outcome.
+- decisionMaker: name, role, priorities, most credible way to reach them.
+- currentTechnology: systems in use, how they connect, where data is re-keyed.
+- bottlenecks: numbered lines; name the constrained step and who owns it.
+- opportunities: numbered lines; each states the measurable outcome unlocked.
+- whyNow: the specific trigger event and the evidence behind it.
+- opportunityValue: single annualised USD figure, digits only, e.g. 96000.
+- internalNotes: positioning, objections to expect, language to avoid.`;
 }
 
 export type ParsedResearch = Partial<Record<ResearchFieldSpec["key"], string>>;
 
+/** Extracts the first balanced JSON object from a response, ignoring fences and prose. */
+function extractJsonObject(raw: string): unknown | null {
+  const start = raw.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < raw.length; i += 1) {
+    const ch = raw[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        try {
+          return JSON.parse(raw.slice(start, i + 1));
+        } catch {
+          return null;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function fromJson(raw: string): ParsedResearch | null {
+  const obj = extractJsonObject(raw);
+  if (!obj || typeof obj !== "object") return null;
+  const record = obj as Record<string, unknown>;
+  const out: ParsedResearch = {};
+  for (const spec of RESEARCH_SPEC) {
+    const value = record[spec.key];
+    if (value === undefined || value === null) continue;
+    const text = Array.isArray(value)
+      ? value.map((v) => String(v)).join("\n")
+      : typeof value === "object"
+        ? JSON.stringify(value, null, 2)
+        : String(value);
+    if (text.trim()) out[spec.key] = text.trim();
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /**
- * Parses a "## TOKEN" structured response back into fields. Tolerant of markdown
- * bold, numbering and extra whitespace so a pasted Claude answer just works.
+ * Parses a Claude response into fields. JSON is the contract; the legacy
+ * "## TOKEN" markdown format is still accepted as a fallback.
  */
 export function parseResearchResponse(raw: string): ParsedResearch {
   const out: ParsedResearch = {};
   if (!raw.trim()) return out;
+
+  const json = fromJson(raw);
+  if (json) return json;
 
   const lines = raw.split(/\r?\n/);
   const norm = (s: string) =>
@@ -165,6 +227,7 @@ export function parseResearchResponse(raw: string): ParsedResearch {
 
   return out;
 }
+
 
 export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) {
   const research = { ...prospect.research };

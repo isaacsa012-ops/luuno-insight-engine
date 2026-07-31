@@ -3,6 +3,8 @@ import { motion } from "motion/react";
 import { ArrowLeft, Clock, ListChecks, Printer, User } from "lucide-react";
 import { Meter, PageHeader, Panel, PanelHeader } from "@/components/kit/Panel";
 import { EditableText } from "@/components/kit/Editable";
+import { OpsDiagram } from "@/components/flow/OpsDiagram";
+
 import { useStore } from "@/lib/store";
 import { AUDIT_SECTIONS } from "@/lib/domain";
 import { currency, shortDate } from "@/lib/format";
@@ -131,7 +133,18 @@ function AuditReport() {
         </div>
       </Panel>
 
+      <Panel>
+        <PanelHeader
+          title="Current vs Future Operations"
+          description="Simulate how the Luuno intelligence layer sits inside the systems this business already runs."
+        />
+        <div className="px-5 py-5">
+          <OpsDiagram ops={prospect.currentOps} />
+        </div>
+      </Panel>
+
       <div className="space-y-4">
+
         {AUDIT_SECTIONS.map((section, i) => {
           const item = prospect.audit[section.key];
           const score = sectionScore(item);

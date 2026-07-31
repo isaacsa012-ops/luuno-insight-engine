@@ -36,9 +36,10 @@ const TABS = [
 ] as const;
 
 export const Route = createFileRoute("/prospects/$prospectId")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    tab: typeof search.tab === "string" ? search.tab : "overview",
+  validateSearch: (search: Record<string, unknown>): { tab?: string } => ({
+    tab: typeof search.tab === "string" ? search.tab : undefined,
   }),
+
   head: () => ({
     meta: [
       { title: "Prospect Workspace · Luuno Growth Engine" },
@@ -165,7 +166,7 @@ function ProspectWorkspace() {
         ))}
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs value={tab ?? "overview"} onValueChange={setTab}>
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-[8px] border border-border bg-surface p-1">
           {TABS.map(([value, label]) => (
             <TabsTrigger

@@ -96,6 +96,8 @@ export interface Prospect {
   industry: string;
   employees: number;
   website: string;
+  location?: string;
+
   phone: string;
   email: string;
   techStack: string[];

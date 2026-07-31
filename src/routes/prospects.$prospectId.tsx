@@ -166,7 +166,7 @@ function ProspectWorkspace() {
         ))}
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs value={tab ?? "overview"} onValueChange={setTab}>
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-[8px] border border-border bg-surface p-1">
           {TABS.map(([value, label]) => (
             <TabsTrigger

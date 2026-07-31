@@ -123,7 +123,7 @@ function Dashboard() {
         description="Every company carries a calculated priority score and one highlighted next action."
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {metrics.map((m, i) => (
           <Metric
             key={m.label}

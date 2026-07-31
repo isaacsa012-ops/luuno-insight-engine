@@ -2,7 +2,10 @@ import { useState } from "react";
 import { Check, ClipboardCopy, Sparkles, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { Panel, PanelHeader, Meter } from "@/components/kit/Panel";
+import { TierTag } from "@/components/kit/Tags";
+import { priorityScore } from "@/lib/scoring";
 import { EditableText } from "@/components/kit/Editable";
+
 import {
   RESEARCH_SPEC,
   applyParsedResearch,
@@ -26,7 +29,10 @@ export function ResearchWorkspace({ prospect }: { prospect: Prospect }) {
   const [response, setResponse] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const priority = priorityScore(prospect);
+
   const prompt = buildResearchPrompt(prospect);
+
 
   const valueOf = (key: (typeof RESEARCH_SPEC)[number]["key"]): string => {
     if (key === "internalNotes") return prospect.notes;

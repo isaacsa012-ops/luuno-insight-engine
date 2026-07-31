@@ -38,32 +38,49 @@ export const Route = createFileRoute("/prospects/")({
   component: ProspectsPage,
 });
 
-type SortKey = "value" | "confidence" | "recent";
+type SortKey = "priority" | "value" | "recent";
 
 function ProspectsPage() {
   const { prospects, updateProspect, deleteProspect, hydrated } = useStore();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ProspectStatus | "all">("all");
-  const [sort, setSort] = useState<SortKey>("value");
+  const [sort, setSort] = useState<SortKey>("priority");
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return prospects
+      .map((p) => ({ ...p, priorityResult: priorityScore(p), action: nextAction(p) }))
       .filter((p) => (status === "all" ? true : p.status === status))
       .filter((p) =>
         q
-          ? [p.company, p.owner, p.industry, p.outreachAngle, ...p.whyNow]
+          ? [
+              p.company,
+              p.owner,
+              p.industry,
+              p.outreachAngle,
+              p.notes,
+              STATUS_LABEL[p.status],
+              ...p.whyNow,
+              ...Object.values(p.research),
+              ...AUDIT_SECTIONS.flatMap((s) => [
+                p.audit[s.key].observation,
+                p.audit[s.key].evidence,
+                p.audit[s.key].opportunity,
+                p.audit[s.key].recommendation,
+              ]),
+            ]
               .join(" ")
               .toLowerCase()
               .includes(q)
           : true,
       )
       .sort((a, b) => {
-        if (sort === "confidence") return b.confidence - a.confidence;
+        if (sort === "value") return b.opportunityValue - a.opportunityValue;
         if (sort === "recent") return a.createdAt < b.createdAt ? 1 : -1;
-        return b.opportunityValue - a.opportunityValue;
+        return b.priorityResult.score - a.priorityResult.score;
       });
   }, [prospects, query, status, sort]);
+
 
   const totalValue = rows.reduce((s, p) => s + p.opportunityValue, 0);
 

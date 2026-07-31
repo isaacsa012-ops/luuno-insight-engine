@@ -134,7 +134,7 @@ function PipelinePage() {
         <PanelHeader title="Ready to Send" description="Audit and video complete, outreach not yet sent." />
         <ul>
           {prospects
-            .filter((p) => p.pipeline.generate_pdf && !p.pipeline.send_email)
+            .filter((p) => p.pipeline.pdf_attached && !p.pipeline.email_sent)
             .map((p) => (
               <li
                 key={p.id}
@@ -149,7 +149,7 @@ function PipelinePage() {
                 </span>
               </li>
             ))}
-          {prospects.filter((p) => p.pipeline.generate_pdf && !p.pipeline.send_email).length === 0 ? (
+          {prospects.filter((p) => p.pipeline.pdf_attached && !p.pipeline.email_sent).length === 0 ? (
             <li className="px-5 py-6 text-[12px] text-subtle">Nothing queued for outreach.</li>
           ) : null}
         </ul>

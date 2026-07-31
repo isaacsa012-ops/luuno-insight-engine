@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { PRIORITY_LABEL, STATUS_LABEL } from "@/lib/domain";
-import type { Priority, ProspectStatus } from "@/lib/types";
+import { TIER_LABEL } from "@/lib/scoring";
+import type { Priority, ProspectStatus, Tier } from "@/lib/types";
 
 const STATUS_TONE: Record<ProspectStatus, string> = {
   researching: "text-muted-foreground",
@@ -48,6 +49,30 @@ export function SignalTag({ children }: { children: string }) {
   return (
     <span className="inline-flex items-center rounded-[6px] border border-border px-2 py-[3px] text-[11px] text-muted-foreground">
       {children}
+    </span>
+  );
+}
+
+const TIER_TONE: Record<Tier, string> = {
+  A: "border-foreground text-foreground",
+  B: "border-border-strong text-muted-foreground",
+  C: "border-border text-muted-foreground",
+  D: "border-border text-subtle",
+};
+
+export function TierTag({ tier, score, className }: { tier: Tier; score?: number; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-[6px] border px-2 py-[3px] text-[11px] font-medium whitespace-nowrap",
+        TIER_TONE[tier],
+        className,
+      )}
+    >
+      {TIER_LABEL[tier]}
+      {typeof score === "number" ? (
+        <span className="tabular-nums opacity-70">{score}</span>
+      ) : null}
     </span>
   );
 }

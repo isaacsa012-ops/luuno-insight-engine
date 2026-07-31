@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/command";
 import { NAV_ITEMS } from "./SidebarNav";
 import { useStore } from "@/lib/store";
-import { STATUS_LABEL } from "@/lib/domain";
+import { AUDIT_SECTIONS, STATUS_LABEL } from "@/lib/domain";
 
 export function CommandPalette({
   open,
@@ -38,7 +38,20 @@ export function CommandPalette({
           {prospects.map((p) => (
             <CommandItem
               key={p.id}
-              value={`${p.company} ${p.industry} ${p.owner}`}
+              value={[
+                p.company,
+                p.industry,
+                p.owner,
+                STATUS_LABEL[p.status],
+                p.notes,
+                p.outreachAngle,
+                ...p.whyNow,
+                ...Object.values(p.research),
+                ...AUDIT_SECTIONS.flatMap((s) => [
+                  p.audit[s.key].observation,
+                  p.audit[s.key].recommendation,
+                ]),
+              ].join(" ")}
               onSelect={() => {
                 onOpenChange(false);
                 void navigate({ to: "/prospects/$prospectId", params: { prospectId: p.id } });

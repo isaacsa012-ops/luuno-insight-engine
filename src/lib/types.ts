@@ -14,10 +14,12 @@ export type Priority = "low" | "medium" | "high" | "critical";
 export interface ResearchSection {
   businessSummary: string;
   customerJourney: string;
+  currentTechnology: string;
   strengths: string;
   weaknesses: string;
   bottlenecks: string;
   opportunities: string;
+  decisionMaker: string;
   recommendation: string;
 }
 
@@ -61,13 +63,25 @@ export interface Attachment {
 export type PipelineStepKey =
   | "research"
   | "audit"
-  | "record_video"
-  | "generate_pdf"
-  | "send_email"
+  | "video_recorded"
+  | "email_ready"
+  | "pdf_attached"
+  | "email_sent"
   | "follow_up"
-  | "proposal"
   | "discovery_call"
-  | "completed";
+  | "proposal"
+  | "client";
+
+export type Tier = "A" | "B" | "C" | "D";
+
+export interface WorkspaceSettings {
+  weeklyOutreachGoal: number;
+  weekStart: string;
+  senderName: string;
+  senderCompany: string;
+  bookingUrl: string;
+  websiteUrl: string;
+}
 
 export interface OpsNode {
   id: string;

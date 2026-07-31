@@ -1,74 +1,100 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import { ArrowLeft, FileDown, Paperclip } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileDown, Paperclip } from "lucide-react";
 import { EmptyState, Meter, PageHeader, Panel, PanelHeader, SectionLabel } from "@/components/kit/Panel";
-import { PriorityTag, SignalTag, StatusPill } from "@/components/kit/Tags";
+import { SignalTag, StatusPill, TierTag } from "@/components/kit/Tags";
 import { EditableText, FieldRow } from "@/components/kit/Editable";
 import { OpsDiagram } from "@/components/flow/OpsDiagram";
+import { ResearchWorkspace } from "@/components/research/ResearchWorkspace";
+import { EmailPreview } from "@/components/outreach/EmailPreview";
 import { useStore } from "@/lib/store";
 import { currency, dateTime, relativeDay } from "@/lib/format";
+import { AUDIT_SECTIONS, PIPELINE_STEPS, STATUS_LABEL, STATUS_ORDER, WHY_NOW_SIGNALS } from "@/lib/domain";
 import {
-  AUDIT_SECTIONS,
-  PIPELINE_STEPS,
-  PRIORITY_LABEL,
-  STATUS_LABEL,
-  STATUS_ORDER,
-  WHY_NOW_SIGNALS,
-} from "@/lib/domain";
+  TIER_DIRECTIVE,
+  TIER_HEADLINE,
+  intelligenceScore,
+  nextAction,
+  opportunityScore,
+  priorityScore,
+  sectionScore,
+} from "@/lib/scoring";
 import { cn } from "@/lib/utils";
-import type { Priority, Prospect, ProspectStatus, ResearchSection } from "@/lib/types";
+import type { Prospect, ProspectStatus } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
+const TABS = [
+  ["overview", "Overview"],
+  ["research", "Research Workspace"],
+  ["audit", "Audit"],
+  ["outreach", "Outreach"],
+  ["operations", "Current vs Future"],
+  ["pipeline", "Pipeline"],
+  ["attachments", "Attachments"],
+  ["timeline", "Timeline"],
+] as const;
+
 export const Route = createFileRoute("/prospects/$prospectId")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    tab: typeof search.tab === "string" ? search.tab : "overview",
+  }),
   head: () => ({
     meta: [
       { title: "Prospect Workspace · Luuno Growth Engine" },
       {
         name: "description",
         content:
-          "Company workspace containing research, why-now signals, the operations model, audit findings and delivery timeline.",
+          "Research workspace, calculated audit, outreach preview, operations model and delivery timeline for a single company.",
       },
       { property: "og:title", content: "Prospect Workspace · Luuno Growth Engine" },
       {
         property: "og:description",
-        content: "Everything Luuno knows about a company in one engineered workspace.",
+        content: "Everything Luuno knows about a company, and the one next action required.",
       },
     ],
   }),
   component: ProspectWorkspace,
 });
 
-const RESEARCH_FIELDS: { key: keyof ResearchSection; label: string; hint: string }[] = [
-  { key: "businessSummary", label: "Business Summary", hint: "What the company actually does and how it makes money." },
-  { key: "customerJourney", label: "Customer Journey", hint: "The real path a customer takes today, step by step." },
-  { key: "strengths", label: "Strengths", hint: "What is genuinely working and must be protected." },
-  { key: "weaknesses", label: "Weaknesses", hint: "Structural gaps, not cosmetic complaints." },
-  { key: "bottlenecks", label: "Observed Bottlenecks", hint: "Where throughput is constrained by a person or a manual step." },
-  { key: "opportunities", label: "Opportunities", hint: "Where systems would create measurable leverage." },
-  { key: "recommendation", label: "Luuno Recommendation", hint: "The specific engagement we propose and the outcome we commit to." },
-];
-
 function ProspectWorkspace() {
   const { prospectId } = Route.useParams();
-  const { getProspect, updateProspect, logActivity } = useStore();
+  const { tab } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const { getProspect, updateProspect, logActivity, addTimelineEvent, hydrated } = useStore();
   const prospect = getProspect(prospectId);
-  const [tab, setTab] = useState("overview");
 
-  if (!prospect) throw notFound();
+  if (hydrated && !prospect) throw notFound();
+  if (!prospect) return null;
 
   const patch = (p: Partial<Prospect>) => updateProspect(prospect.id, p);
-  const patchResearch = (key: keyof ResearchSection, value: string) =>
-    patch({ research: { ...prospect.research, [key]: value } });
+  const setTab = (value: string) => navigate({ to: ".", search: { tab: value } });
 
+  const priority = priorityScore(prospect);
+  const intelligence = intelligenceScore(prospect);
+  const opportunity = opportunityScore(prospect);
+  const action = nextAction(prospect);
   const auditedSections = AUDIT_SECTIONS.filter((s) => prospect.audit[s.key].observation);
-  const auditScore = auditedSections.length
-    ? Math.round(
-        auditedSections.reduce((sum, s) => sum + prospect.audit[s.key].score, 0) / auditedSections.length,
-      )
-    : 0;
   const completedSteps = PIPELINE_STEPS.filter((s) => prospect.pipeline[s.key]).length;
+
+  const toggleStep = (key: (typeof PIPELINE_STEPS)[number]["key"], label: string) => {
+    const active = prospect.pipeline[key];
+    patch({ pipeline: { ...prospect.pipeline, [key]: !active } });
+    if (!active) {
+      logActivity(prospect.id, `${label} completed`);
+      addTimelineEvent(prospect.id, { kind: "system", label: `${label} completed` });
+      toast.success(`${prospect.company} · ${label}`);
+    }
+  };
+
+  const runNextAction = () => {
+    if (action.step === "research") return setTab("research");
+    if (action.step === "audit")
+      return void navigate({ to: "/audit/$prospectId", params: { prospectId: prospect.id } });
+    if (action.step === "email_ready" || action.step === "email_sent") return setTab("outreach");
+    if (action.step) return toggleStep(action.step, action.label);
+    setTab("timeline");
+  };
 
   return (
     <motion.div
@@ -91,6 +117,7 @@ function ProspectWorkspace() {
         actions={
           <div className="flex items-center gap-3">
             <StatusPill status={prospect.status} />
+            <TierTag tier={priority.tier} score={priority.score} />
             <div className="hidden text-right sm:block">
               <p className="text-[18px] font-semibold tabular-nums">
                 {currency(prospect.opportunityValue, true)}
@@ -101,36 +128,46 @@ function ProspectWorkspace() {
         }
       />
 
+      {/* NEXT ACTION */}
+      <Panel className="border-border-strong">
+        <div className="grid grid-cols-1 gap-4 px-5 py-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="min-w-0">
+            <SectionLabel>Next Action</SectionLabel>
+            <p className="mt-2 truncate text-[20px] font-semibold tracking-tight">{action.label}</p>
+            <p className="mt-1 truncate text-[12px] text-subtle">{action.hint}</p>
+          </div>
+          <button
+            type="button"
+            onClick={runNextAction}
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-[8px] bg-foreground px-4 text-[13px] font-medium text-background"
+          >
+            {action.label} <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </Panel>
+
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          { label: "Confidence", value: `${prospect.confidence}%`, meter: prospect.confidence },
-          { label: "Audit Score", value: auditScore ? `${auditScore}` : "—", meter: auditScore },
+          { label: "Priority Score", value: `${priority.score}`, meter: priority.score },
+          { label: "Intelligence", value: `${intelligence}`, meter: intelligence },
+          { label: "Opportunity", value: `${opportunity}`, meter: opportunity },
           {
             label: "Pipeline",
             value: `${completedSteps}/${PIPELINE_STEPS.length}`,
             meter: (completedSteps / PIPELINE_STEPS.length) * 100,
           },
-          { label: "Next Follow Up", value: relativeDay(prospect.nextFollowUp), meter: 0 },
         ].map((m) => (
           <div key={m.label} className="rounded-[10px] border border-border bg-surface p-4">
             <p className="label-caps truncate">{m.label}</p>
             <p className="mt-3 truncate text-[20px] font-semibold tabular-nums leading-none">{m.value}</p>
-            {m.meter ? <Meter value={m.meter} className="mt-3" /> : null}
+            <Meter value={m.meter} className="mt-3" />
           </div>
         ))}
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto rounded-[8px] border border-border bg-surface p-1">
-          {[
-            ["overview", "Overview"],
-            ["research", "Research"],
-            ["operations", "Current vs Future"],
-            ["audit", "Audit"],
-            ["notes", "Notes"],
-            ["attachments", "Attachments"],
-            ["timeline", "Timeline"],
-          ].map(([value, label]) => (
+          {TABS.map(([value, label]) => (
             <TabsTrigger
               key={value}
               value={value}
@@ -144,6 +181,28 @@ function ProspectWorkspace() {
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-6 space-y-6">
           <Panel className="border-border-strong">
+            <PanelHeader
+              title={`Priority ${priority.score} · ${TIER_HEADLINE[priority.tier]}`}
+              description={`${TIER_DIRECTIVE[priority.tier]} Calculated from the factors below — not manually set.`}
+              action={<TierTag tier={priority.tier} />}
+            />
+            <ul className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
+              {priority.factors.map((f) => (
+                <li key={f.label} className="bg-surface px-5 py-4">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-2">
+                    <p className="truncate text-[12px] text-foreground">{f.label}</p>
+                    <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
+                      {Math.round(f.score)}/{f.max}
+                    </span>
+                  </div>
+                  <Meter value={(f.score / f.max) * 100} className="mt-2.5" />
+                  <p className="mt-2 truncate text-[11px] text-subtle">{f.detail}</p>
+                </li>
+              ))}
+            </ul>
+          </Panel>
+
+          <Panel>
             <PanelHeader
               title="Why Now"
               description="The specific reason Luuno is reaching out at this moment rather than any other."
@@ -234,6 +293,10 @@ function ProspectWorkspace() {
                     const status = e.target.value as ProspectStatus;
                     patch({ status });
                     logActivity(prospect.id, `Status moved to ${STATUS_LABEL[status]}`);
+                    addTimelineEvent(prospect.id, {
+                      kind: "status",
+                      label: `Status moved to ${STATUS_LABEL[status]}`,
+                    });
                   }}
                   className="rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-[13px] text-foreground outline-none"
                 >
@@ -244,18 +307,20 @@ function ProspectWorkspace() {
                   ))}
                 </select>
               </FieldRow>
-              <FieldRow label="Priority">
-                <select
-                  value={prospect.priority}
-                  onChange={(e) => patch({ priority: e.target.value as Priority })}
+              <FieldRow label="Next Follow Up">
+                <input
+                  type="date"
+                  value={prospect.nextFollowUp ? prospect.nextFollowUp.slice(0, 10) : ""}
+                  onChange={(e) =>
+                    patch({
+                      nextFollowUp: e.target.value ? new Date(e.target.value).toISOString() : null,
+                    })
+                  }
                   className="rounded-[8px] border border-border bg-background px-2.5 py-1.5 text-[13px] text-foreground outline-none"
-                >
-                  {(Object.keys(PRIORITY_LABEL) as Priority[]).map((p) => (
-                    <option key={p} value={p}>
-                      {PRIORITY_LABEL[p]}
-                    </option>
-                  ))}
-                </select>
+                />
+                <span className="ml-3 text-[12px] text-subtle">
+                  {hydrated ? relativeDay(prospect.nextFollowUp) : ""}
+                </span>
               </FieldRow>
               <FieldRow label="Confidence Score">
                 <div className="flex items-center gap-4">
@@ -279,30 +344,93 @@ function ProspectWorkspace() {
                   )}
                 </div>
               </FieldRow>
-              <FieldRow label="Priority Tag">
-                <div className="py-1.5">
-                  <PriorityTag priority={prospect.priority} />
-                </div>
-              </FieldRow>
             </div>
           </Panel>
         </TabsContent>
 
-        {/* RESEARCH */}
-        <TabsContent value="research" className="mt-6 space-y-4">
-          {RESEARCH_FIELDS.map((f) => (
-            <Panel key={f.key}>
-              <PanelHeader title={f.label} description={f.hint} />
-              <div className="px-5 py-4">
-                <EditableText
-                  multiline
-                  rows={6}
-                  value={prospect.research[f.key]}
-                  onChange={(v) => patchResearch(f.key, v)}
-                />
-              </div>
-            </Panel>
-          ))}
+        {/* RESEARCH WORKSPACE */}
+        <TabsContent value="research" className="mt-6">
+          <ResearchWorkspace prospect={prospect} />
+        </TabsContent>
+
+        {/* AUDIT */}
+        <TabsContent value="audit" className="mt-6">
+          <Panel>
+            <PanelHeader
+              title="Audit Summary"
+              description="Scores are calculated from documented sections. Full report and export live in the Audit Library."
+              action={
+                <Link
+                  to="/audit/$prospectId"
+                  params={{ prospectId: prospect.id }}
+                  className="rounded-[8px] border border-border px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                >
+                  Open Full Audit
+                </Link>
+              }
+            />
+            {auditedSections.length === 0 ? (
+              <EmptyState
+                title="No audit findings yet"
+                description="Open the full audit to document observations, evidence, opportunities and recommendations."
+              />
+            ) : (
+              <ul>
+                {auditedSections.map((s) => (
+                  <li
+                    key={s.key}
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border px-5 py-4 last:border-b-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-medium">{s.label}</p>
+                      <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-subtle">
+                        {prospect.audit[s.key].observation}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-[15px] tabular-nums">
+                      {sectionScore(prospect.audit[s.key])}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Panel>
+        </TabsContent>
+
+        {/* OUTREACH */}
+        <TabsContent value="outreach" className="mt-6 space-y-6">
+          <EmailPreview prospect={prospect} />
+          <Panel>
+            <PanelHeader
+              title="Outreach Checklist"
+              description="Marking a step complete updates the pipeline, the timeline and the weekly goal."
+            />
+            <ul className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
+              {PIPELINE_STEPS.filter((s) =>
+                ["video_recorded", "email_ready", "pdf_attached", "email_sent", "follow_up"].includes(s.key),
+              ).map((s) => (
+                <li key={s.key} className="bg-surface">
+                  <button
+                    type="button"
+                    onClick={() => toggleStep(s.key, s.label)}
+                    className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-surface-raised"
+                  >
+                    <span
+                      className={cn(
+                        "flex h-5 w-5 items-center justify-center rounded-[6px] border",
+                        prospect.pipeline[s.key]
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-transparent",
+                      )}
+                    >
+                      <Check className="h-3 w-3" strokeWidth={2.5} />
+                    </span>
+                    <span className="truncate text-[13px]">{s.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Panel>
         </TabsContent>
 
         {/* CURRENT vs FUTURE */}
@@ -364,58 +492,51 @@ function ProspectWorkspace() {
           </Panel>
         </TabsContent>
 
-        {/* AUDIT */}
-        <TabsContent value="audit" className="mt-6">
+        {/* PIPELINE */}
+        <TabsContent value="pipeline" className="mt-6 space-y-6">
           <Panel>
             <PanelHeader
-              title="Audit Summary"
-              description="Full editing and export lives in the Audit Builder."
+              title="Production Checklist"
+              description={`${completedSteps} of ${PIPELINE_STEPS.length} steps complete.`}
               action={
                 <Link
-                  to="/audit"
-                  search={{ prospectId: prospect.id }}
+                  to="/pipeline"
                   className="rounded-[8px] border border-border px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
                 >
-                  Open Audit Builder
+                  Open Board
                 </Link>
               }
             />
-            {auditedSections.length === 0 ? (
-              <EmptyState
-                title="No audit findings yet"
-                description="Open the Audit Builder to document observations, evidence, opportunities and recommendations."
-              />
-            ) : (
-              <ul>
-                {auditedSections.map((s) => (
-                  <li
-                    key={s.key}
-                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-b border-border px-5 py-4 last:border-b-0"
+            <ul className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
+              {PIPELINE_STEPS.map((s) => (
+                <li key={s.key} className="bg-surface">
+                  <button
+                    type="button"
+                    onClick={() => toggleStep(s.key, s.label)}
+                    className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-surface-raised"
                   >
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-medium">{s.label}</p>
-                      <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-subtle">
-                        {prospect.audit[s.key].observation}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-[15px] tabular-nums">
-                      {prospect.audit[s.key].score}
+                    <span
+                      className={cn(
+                        "flex h-5 w-5 items-center justify-center rounded-[6px] border",
+                        prospect.pipeline[s.key]
+                          ? "border-foreground bg-foreground text-background"
+                          : "border-border text-transparent",
+                      )}
+                    >
+                      <Check className="h-3 w-3" strokeWidth={2.5} />
                     </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                    <span className="truncate text-[13px]">{s.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </Panel>
-        </TabsContent>
-
-        {/* NOTES */}
-        <TabsContent value="notes" className="mt-6">
           <Panel>
-            <PanelHeader title="Notes" description="Internal context, positioning and language that works." />
+            <PanelHeader title="Internal Notes" description="Positioning, objections and language that works." />
             <div className="px-5 py-4">
               <EditableText
                 multiline
-                rows={10}
+                rows={8}
                 value={prospect.notes}
                 onChange={(v) => patch({ notes: v })}
               />
@@ -472,7 +593,9 @@ function ProspectWorkspace() {
                         {a.kind} · {a.size}
                       </p>
                     </div>
-                    <span className="shrink-0 text-[11px] text-subtle">{dateTime(a.addedAt)}</span>
+                    <span className="shrink-0 text-[11px] text-subtle">
+                      {hydrated ? dateTime(a.addedAt) : ""}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -496,7 +619,9 @@ function ProspectWorkspace() {
                     <div className="min-w-0">
                       <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
                         <p className="truncate text-[13px]">{t.label}</p>
-                        <span className="shrink-0 text-[11px] text-subtle">{dateTime(t.at)}</span>
+                        <span className="shrink-0 text-[11px] text-subtle">
+                          {hydrated ? dateTime(t.at) : ""}
+                        </span>
                       </div>
                       {t.detail ? (
                         <p className="mt-1 text-[12px] leading-relaxed text-subtle">{t.detail}</p>

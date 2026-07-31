@@ -1,4 +1,5 @@
 import type {
+  ResearchSection,
   Audit,
   AuditSectionKey,
   PipelineStepKey,
@@ -53,13 +54,14 @@ export const AUDIT_SECTIONS: { key: AuditSectionKey; label: string; brief: strin
 export const PIPELINE_STEPS: { key: PipelineStepKey; label: string }[] = [
   { key: "research", label: "Research" },
   { key: "audit", label: "Audit" },
-  { key: "record_video", label: "Record Video" },
-  { key: "generate_pdf", label: "Generate PDF" },
-  { key: "send_email", label: "Send Email" },
+  { key: "video_recorded", label: "Video Recorded" },
+  { key: "email_ready", label: "Email Ready" },
+  { key: "pdf_attached", label: "PDF Attached" },
+  { key: "email_sent", label: "Email Sent" },
   { key: "follow_up", label: "Follow Up" },
-  { key: "proposal", label: "Proposal" },
   { key: "discovery_call", label: "Discovery Call" },
-  { key: "completed", label: "Completed" },
+  { key: "proposal", label: "Proposal" },
+  { key: "client", label: "Client" },
 ];
 
 export const WHY_NOW_SIGNALS = [
@@ -103,7 +105,12 @@ const days = (n: number) => {
   return d.toISOString();
 };
 
-export const SEED_PROSPECTS: Prospect[] = [
+type RawSeed = Omit<Prospect, "research" | "pipeline"> & {
+  research: Partial<Prospect["research"]>;
+  pipeline: Partial<Record<PipelineStepKey, boolean>>;
+};
+
+const RAW_SEEDS: RawSeed[] = [
   {
     id: "p-northline",
     company: "Northline Mechanical",
@@ -161,7 +168,7 @@ export const SEED_PROSPECTS: Prospect[] = [
       { id: "t3", at: days(-6), kind: "call", label: "Discovery call held", detail: "42 minutes. Dale confirmed dispatch bottleneck." },
       { id: "t4", at: days(-3), kind: "status", label: "Status moved to Audit Ready" },
     ],
-    pipeline: { ...emptyPipeline(), research: true, audit: true, record_video: true },
+    pipeline: { ...emptyPipeline(), research: true, audit: true, video_recorded: true },
     currentOps: [
       { id: "web", label: "Website", sublabel: "Static, no capture" },
       { id: "phone", label: "Phone", sublabel: "Answering service" },
@@ -229,9 +236,9 @@ export const SEED_PROSPECTS: Prospect[] = [
       ...emptyPipeline(),
       research: true,
       audit: true,
-      record_video: true,
-      generate_pdf: true,
-      send_email: true,
+      video_recorded: true,
+      pdf_attached: true,
+      email_sent: true,
       follow_up: true,
     },
     currentOps: [
@@ -458,7 +465,7 @@ export const SEED_PROSPECTS: Prospect[] = [
       { id: "t15", at: days(-19), kind: "outreach", label: "Audit sent" },
       { id: "t16", at: days(-8), kind: "outreach", label: "Follow up 2 sent" },
     ],
-    pipeline: { ...emptyPipeline(), research: true, audit: true, record_video: true, generate_pdf: true, send_email: true },
+    pipeline: { ...emptyPipeline(), research: true, audit: true, video_recorded: true, pdf_attached: true, email_sent: true },
     currentOps: [
       { id: "web", label: "Website", sublabel: "Trial booking" },
       { id: "phone", label: "Front Desk", sublabel: "Per studio" },
@@ -473,3 +480,58 @@ export const SEED_PROSPECTS: Prospect[] = [
     outreachAngle: "Churn early-warning brief",
   },
 ];
+
+export const emptyResearch = (): ResearchSection => ({
+  businessSummary: "",
+  customerJourney: "",
+  currentTechnology: "",
+  strengths: "",
+  weaknesses: "",
+  bottlenecks: "",
+  opportunities: "",
+  decisionMaker: "",
+  recommendation: "",
+});
+
+/**
+ * Fills in any fields added after a record was created (seed data or a
+ * previously persisted local record) so every prospect is fully shaped.
+ */
+export function normalizeProspect(raw: Partial<RawSeed> & { id: string }): Prospect {
+  const research = { ...emptyResearch(), ...(raw.research ?? {}) };
+  if (!research.currentTechnology) research.currentTechnology = (raw.techStack ?? []).join(", ");
+  if (!research.decisionMaker && raw.owner) {
+    research.decisionMaker = [raw.owner, raw.email, raw.phone].filter(Boolean).join(" · ");
+  }
+  return {
+    id: raw.id,
+    company: raw.company ?? "Untitled company",
+    owner: raw.owner ?? "",
+    industry: raw.industry ?? "",
+    employees: raw.employees ?? 0,
+    website: raw.website ?? "",
+    phone: raw.phone ?? "",
+    email: raw.email ?? "",
+    techStack: raw.techStack ?? [],
+    opportunityValue: raw.opportunityValue ?? 0,
+    status: raw.status ?? "researching",
+    priority: raw.priority ?? "medium",
+    confidence: raw.confidence ?? 0,
+    whyNow: raw.whyNow ?? [],
+    whyNowNarrative: raw.whyNowNarrative ?? "",
+    research,
+    audit: { ...emptyAudit(), ...(raw.audit ?? {}) },
+    notes: raw.notes ?? "",
+    attachments: raw.attachments ?? [],
+    timeline: raw.timeline ?? [],
+    pipeline: { ...emptyPipeline(), ...(raw.pipeline ?? {}) },
+    currentOps: raw.currentOps ?? [],
+    nextFollowUp: raw.nextFollowUp ?? null,
+    createdAt: raw.createdAt ?? new Date().toISOString(),
+    closedMrr: raw.closedMrr ?? 0,
+    repliedAt: raw.repliedAt ?? null,
+    outreachAngle: raw.outreachAngle ?? "",
+  };
+}
+
+export const SEED_PROSPECTS: Prospect[] = RAW_SEEDS.map(normalizeProspect);

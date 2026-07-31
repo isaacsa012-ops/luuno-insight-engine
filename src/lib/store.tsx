@@ -7,10 +7,19 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { SEED_PROSPECTS, emptyAudit, emptyPipeline } from "./domain";
-import type { ActivityEntry, Prospect } from "./types";
+import { SEED_PROSPECTS, emptyPipeline, normalizeProspect } from "./domain";
+import type { ActivityEntry, Prospect, TimelineEvent, WorkspaceSettings } from "./types";
 
-const STORAGE_KEY = "luuno.growth-engine.v1";
+const STORAGE_KEY = "luuno.growth-engine.v2";
+
+export const DEFAULT_SETTINGS: WorkspaceSettings = {
+  weeklyOutreachGoal: 100,
+  weekStart: "monday",
+  senderName: "Marvin",
+  senderCompany: "Luuno",
+  bookingUrl: "https://luuno.io/book",
+  websiteUrl: "https://luuno.io",
+};
 
 /**
  * Local persistence layer.
@@ -22,12 +31,15 @@ const STORAGE_KEY = "luuno.growth-engine.v1";
 interface StoreValue {
   prospects: Prospect[];
   activity: ActivityEntry[];
+  settings: WorkspaceSettings;
   hydrated: boolean;
   getProspect: (id: string) => Prospect | undefined;
   updateProspect: (id: string, patch: Partial<Prospect>) => void;
   createProspect: (input: NewProspectInput) => Prospect;
   deleteProspect: (id: string) => void;
   logActivity: (prospectId: string, label: string) => void;
+  addTimelineEvent: (prospectId: string, event: Omit<TimelineEvent, "id" | "at">) => void;
+  updateSettings: (patch: Partial<WorkspaceSettings>) => void;
   reset: () => void;
 }
 
@@ -44,38 +56,17 @@ const StoreContext = createContext<StoreValue | null>(null);
 
 const nowId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
-const emptyResearch = () => ({
-  businessSummary: "",
-  customerJourney: "",
-  strengths: "",
-  weaknesses: "",
-  bottlenecks: "",
-  opportunities: "",
-  recommendation: "",
-});
-
 function buildProspect(input: NewProspectInput): Prospect {
   const at = new Date().toISOString();
-  return {
+  return normalizeProspect({
     id: nowId(),
     company: input.company,
     owner: input.owner,
     industry: input.industry,
-    employees: 0,
     website: input.website,
-    phone: "",
     email: input.email,
-    techStack: [],
     opportunityValue: input.opportunityValue,
     status: "researching",
-    priority: "medium",
-    confidence: 25,
-    whyNow: [],
-    whyNowNarrative: "",
-    research: emptyResearch(),
-    audit: emptyAudit(),
-    notes: "",
-    attachments: [],
     timeline: [{ id: nowId(), at, kind: "system", label: "Prospect created" }],
     pipeline: emptyPipeline(),
     currentOps: [
@@ -84,22 +75,21 @@ function buildProspect(input: NewProspectInput): Prospect {
       { id: "crm", label: "CRM" },
       { id: "email", label: "Email" },
     ],
-    nextFollowUp: null,
     createdAt: at,
-    closedMrr: 0,
-    repliedAt: null,
-    outreachAngle: "",
-  };
+    research: {},
+  });
 }
 
 interface Persisted {
   prospects: Prospect[];
   activity: ActivityEntry[];
+  settings?: WorkspaceSettings;
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [prospects, setProspects] = useState<Prospect[]>(SEED_PROSPECTS);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [settings, setSettings] = useState<WorkspaceSettings>(DEFAULT_SETTINGS);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -108,9 +98,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw) as Persisted;
         if (Array.isArray(parsed.prospects) && parsed.prospects.length) {
-          setProspects(parsed.prospects);
+          setProspects(parsed.prospects.map((p) => normalizeProspect(p)));
           setActivity(parsed.activity ?? []);
         }
+        if (parsed.settings) setSettings({ ...DEFAULT_SETTINGS, ...parsed.settings });
       }
     } catch {
       /* corrupted local state falls back to seed */
@@ -121,11 +112,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ prospects, activity }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ prospects, activity, settings }));
     } catch {
       /* storage quota — non fatal */
     }
-  }, [prospects, activity, hydrated]);
+  }, [prospects, activity, settings, hydrated]);
 
   const logActivity = useCallback((prospectId: string, label: string) => {
     setProspects((current) => {
@@ -140,6 +131,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const updateProspect = useCallback((id: string, patch: Partial<Prospect>) => {
     setProspects((current) => current.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }, []);
+
+  const addTimelineEvent = useCallback(
+    (prospectId: string, event: Omit<TimelineEvent, "id" | "at">) => {
+      const entry: TimelineEvent = { id: nowId(), at: new Date().toISOString(), ...event };
+      setProspects((current) =>
+        current.map((p) => (p.id === prospectId ? { ...p, timeline: [entry, ...p.timeline] } : p)),
+      );
+    },
+    [],
+  );
 
   const createProspect = useCallback(
     (input: NewProspectInput) => {
@@ -166,24 +167,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setProspects((current) => current.filter((p) => p.id !== id));
   }, []);
 
+  const updateSettings = useCallback((patch: Partial<WorkspaceSettings>) => {
+    setSettings((current) => ({ ...current, ...patch }));
+  }, []);
+
   const reset = useCallback(() => {
     setProspects(SEED_PROSPECTS);
     setActivity([]);
+    setSettings(DEFAULT_SETTINGS);
   }, []);
 
   const value = useMemo<StoreValue>(
     () => ({
       prospects,
       activity,
+      settings,
       hydrated,
       getProspect: (id: string) => prospects.find((p) => p.id === id),
       updateProspect,
       createProspect,
       deleteProspect,
       logActivity,
+      addTimelineEvent,
+      updateSettings,
       reset,
     }),
-    [prospects, activity, hydrated, updateProspect, createProspect, deleteProspect, logActivity, reset],
+    [
+      prospects,
+      activity,
+      settings,
+      hydrated,
+      updateProspect,
+      createProspect,
+      deleteProspect,
+      logActivity,
+      addTimelineEvent,
+      updateSettings,
+      reset,
+    ],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

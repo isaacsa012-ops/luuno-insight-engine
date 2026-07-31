@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 export const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/prospects", label: "Prospects", icon: Users, exact: false },
-  { to: "/audit", label: "Audit Builder", icon: FileText, exact: false },
+  { to: "/audit", label: "Audit Library", icon: FileText, exact: false },
   { to: "/pipeline", label: "Content Pipeline", icon: ListChecks, exact: false },
   { to: "/analytics", label: "Analytics", icon: BarChart3, exact: false },
   { to: "/settings", label: "Profile / Settings", icon: Settings, exact: false },

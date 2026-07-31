@@ -3,10 +3,12 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Search, SlidersHorizontal, Users } from "lucide-react";
 import { EmptyState, PageHeader, Panel } from "@/components/kit/Panel";
-import { PriorityTag, StatusPill } from "@/components/kit/Tags";
+import { StatusPill, TierTag } from "@/components/kit/Tags";
 import { useStore } from "@/lib/store";
-import { STATUS_LABEL, STATUS_ORDER } from "@/lib/domain";
+import { AUDIT_SECTIONS, STATUS_LABEL, STATUS_ORDER } from "@/lib/domain";
+import { nextAction, priorityScore } from "@/lib/scoring";
 import { currency, relativeDay } from "@/lib/format";
+
 import { cn } from "@/lib/utils";
 import type { ProspectStatus } from "@/lib/types";
 import {
@@ -38,32 +40,49 @@ export const Route = createFileRoute("/prospects/")({
   component: ProspectsPage,
 });
 
-type SortKey = "value" | "confidence" | "recent";
+type SortKey = "priority" | "value" | "recent";
 
 function ProspectsPage() {
   const { prospects, updateProspect, deleteProspect, hydrated } = useStore();
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ProspectStatus | "all">("all");
-  const [sort, setSort] = useState<SortKey>("value");
+  const [sort, setSort] = useState<SortKey>("priority");
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
     return prospects
+      .map((p) => ({ ...p, priorityResult: priorityScore(p), action: nextAction(p) }))
       .filter((p) => (status === "all" ? true : p.status === status))
       .filter((p) =>
         q
-          ? [p.company, p.owner, p.industry, p.outreachAngle, ...p.whyNow]
+          ? [
+              p.company,
+              p.owner,
+              p.industry,
+              p.outreachAngle,
+              p.notes,
+              STATUS_LABEL[p.status],
+              ...p.whyNow,
+              ...Object.values(p.research),
+              ...AUDIT_SECTIONS.flatMap((s) => [
+                p.audit[s.key].observation,
+                p.audit[s.key].evidence,
+                p.audit[s.key].opportunity,
+                p.audit[s.key].recommendation,
+              ]),
+            ]
               .join(" ")
               .toLowerCase()
               .includes(q)
           : true,
       )
       .sort((a, b) => {
-        if (sort === "confidence") return b.confidence - a.confidence;
+        if (sort === "value") return b.opportunityValue - a.opportunityValue;
         if (sort === "recent") return a.createdAt < b.createdAt ? 1 : -1;
-        return b.opportunityValue - a.opportunityValue;
+        return b.priorityResult.score - a.priorityResult.score;
       });
   }, [prospects, query, status, sort]);
+
 
   const totalValue = rows.reduce((s, p) => s + p.opportunityValue, 0);
 
@@ -115,11 +134,12 @@ function ProspectsPage() {
           <div className="flex h-9 items-center rounded-[8px] border border-border bg-surface p-0.5">
             {(
               [
+                ["priority", "Priority"],
                 ["value", "Value"],
-                ["confidence", "Confidence"],
                 ["recent", "Recent"],
               ] as const
             ).map(([key, label]) => (
+
               <button
                 key={key}
                 type="button"
@@ -137,13 +157,14 @@ function ProspectsPage() {
       </div>
 
       <Panel className="overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_130px_110px_110px_110px] gap-4 border-b border-border px-5 py-3 lg:grid">
-          {["Company", "Industry", "Status", "Priority", "Confidence", "Value"].map((h) => (
+        <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_130px_110px_110px] gap-4 border-b border-border px-5 py-3 lg:grid">
+          {["Company", "Next Action", "Status", "Priority", "Value"].map((h) => (
             <span key={h} className="label-caps">
               {h}
             </span>
           ))}
         </div>
+
 
         {!hydrated ? (
           <div className="space-y-3 p-5">
@@ -166,23 +187,26 @@ function ProspectsPage() {
                     <Link
                       to="/prospects/$prospectId"
                       params={{ prospectId: p.id }}
-                      className="grid grid-cols-1 gap-2 px-5 py-4 transition-colors hover:bg-surface-raised lg:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_130px_110px_110px_110px] lg:items-center lg:gap-4"
+                      className="grid grid-cols-1 gap-2 px-5 py-4 transition-colors hover:bg-surface-raised lg:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_130px_110px_110px] lg:items-center lg:gap-4"
                     >
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-medium">{p.company}</p>
                         <p className="truncate text-[11px] text-subtle">
-                          {p.owner || "Owner unknown"} · {relativeDay(p.nextFollowUp)}
+                          {p.industry} · {p.owner || "Owner unknown"} · {relativeDay(p.nextFollowUp)}
                         </p>
                       </div>
-                      <p className="truncate text-[12px] text-muted-foreground">{p.industry}</p>
+                      <div className="min-w-0">
+                        <p className="truncate text-[12px] text-foreground">{p.action.label}</p>
+                        <p className="truncate text-[11px] text-subtle">{p.action.hint}</p>
+                      </div>
                       <div>
                         <StatusPill status={p.status} />
                       </div>
-                      <PriorityTag priority={p.priority} />
-                      <p className="text-[12px] tabular-nums text-muted-foreground">{p.confidence}%</p>
+                      <TierTag tier={p.priorityResult.tier} score={p.priorityResult.score} />
                       <p className="text-[13px] tabular-nums lg:text-right">
                         {currency(p.opportunityValue, true)}
                       </p>
+
                     </Link>
                   </li>
                 </ContextMenuTrigger>

@@ -3,6 +3,8 @@ import { motion } from "motion/react";
 import { ArrowLeft, Clock, ListChecks, Printer, User } from "lucide-react";
 import { Meter, PageHeader, Panel, PanelHeader } from "@/components/kit/Panel";
 import { EditableText } from "@/components/kit/Editable";
+import { OpsDiagram } from "@/components/flow/OpsDiagram";
+
 import { useStore } from "@/lib/store";
 import { AUDIT_SECTIONS } from "@/lib/domain";
 import { currency, shortDate } from "@/lib/format";

@@ -73,11 +73,18 @@ function Dashboard() {
   const daysLeft = hydrated ? daysLeftInWeek() : 0;
   const dailyRequired = daysLeft ? Math.ceil(remaining / daysLeft) : remaining;
 
+  const countOpen = (fn: (p: Prospect) => boolean) =>
+    open.filter((s) => fn(s.prospect)).length;
+
   const metrics = [
-    { label: "Tier A", value: byTier[0].items.length },
-    { label: "Tier B", value: byTier[1].items.length },
-    { label: "Open Engagements", value: open.length },
-    { label: "Replied", value: prospects.filter((p) => p.repliedAt).length },
+    { label: "Research Queue", value: countOpen((p) => !p.pipeline.research) },
+    { label: "Audit Queue", value: countOpen((p) => p.pipeline.research && !p.pipeline.audit) },
+    { label: "Videos Pending", value: countOpen((p) => p.pipeline.audit && !p.pipeline.video_recorded) },
+    {
+      label: "Emails Ready",
+      value: countOpen((p) => p.pipeline.email_ready && !p.pipeline.email_sent),
+    },
+    { label: "Follow Ups", value: countOpen((p) => p.pipeline.email_sent && !p.repliedAt) },
     { label: "Calls Booked", value: prospects.filter((p) => p.pipeline.discovery_call).length },
     {
       label: "MRR Closed",
@@ -87,6 +94,7 @@ function Dashboard() {
       ),
     },
   ];
+
 
   const followUps = [...prospects]
     .filter((p) => p.nextFollowUp)
@@ -115,7 +123,7 @@ function Dashboard() {
         description="Every company carries a calculated priority score and one highlighted next action."
       />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         {metrics.map((m, i) => (
           <Metric
             key={m.label}

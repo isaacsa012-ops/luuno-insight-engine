@@ -157,13 +157,14 @@ function ProspectsPage() {
       </div>
 
       <Panel className="overflow-hidden">
-        <div className="hidden grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_130px_110px_110px_110px] gap-4 border-b border-border px-5 py-3 lg:grid">
-          {["Company", "Industry", "Status", "Priority", "Confidence", "Value"].map((h) => (
+        <div className="hidden grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_130px_110px_110px] gap-4 border-b border-border px-5 py-3 lg:grid">
+          {["Company", "Next Action", "Status", "Priority", "Value"].map((h) => (
             <span key={h} className="label-caps">
               {h}
             </span>
           ))}
         </div>
+
 
         {!hydrated ? (
           <div className="space-y-3 p-5">

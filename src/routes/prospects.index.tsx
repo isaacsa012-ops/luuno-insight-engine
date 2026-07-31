@@ -3,10 +3,12 @@ import { useMemo, useState } from "react";
 import { motion } from "motion/react";
 import { Search, SlidersHorizontal, Users } from "lucide-react";
 import { EmptyState, PageHeader, Panel } from "@/components/kit/Panel";
-import { PriorityTag, StatusPill } from "@/components/kit/Tags";
+import { StatusPill, TierTag } from "@/components/kit/Tags";
 import { useStore } from "@/lib/store";
-import { STATUS_LABEL, STATUS_ORDER } from "@/lib/domain";
+import { AUDIT_SECTIONS, STATUS_LABEL, STATUS_ORDER } from "@/lib/domain";
+import { nextAction, priorityScore } from "@/lib/scoring";
 import { currency, relativeDay } from "@/lib/format";
+
 import { cn } from "@/lib/utils";
 import type { ProspectStatus } from "@/lib/types";
 import {

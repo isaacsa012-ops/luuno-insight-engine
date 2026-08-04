@@ -46,11 +46,11 @@ export function EditableText({
       >
         <span
           className={cn(
-            "min-w-0 flex-1 text-[13px] leading-relaxed whitespace-pre-wrap",
+            "min-w-0 flex-1 text-[13px] leading-relaxed",
             value ? "text-muted-foreground" : "text-subtle italic",
           )}
         >
-          {value || placeholder}
+          {value ? <BulletAware text={value} /> : placeholder}
         </span>
         <Pencil className="mt-0.5 h-3 w-3 shrink-0 text-subtle opacity-0 transition-opacity group-hover:opacity-100" />
       </button>
@@ -108,5 +108,34 @@ export function FieldRow({
       <p className="label-caps pt-1.5">{label}</p>
       <div className="min-w-0">{children}</div>
     </div>
+  );
+}
+
+
+/**
+ * Read-mode renderer: lines beginning with "-", "*" or a number become a
+ * proper bullet list; everything else stays as prose. Editing is untouched —
+ * the raw text keeps its markers so the parse/edit round-trip is lossless.
+ */
+function BulletAware({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const bulletish = lines.filter((l) => /^\s*([-*\u2022]|\d+[.)])\s+/.test(l)).length;
+  if (bulletish < 2) return <span className="whitespace-pre-wrap">{text}</span>;
+  return (
+    <span className="block space-y-1.5">
+      {lines
+        .filter((l) => l.trim())
+        .map((l, i) => {
+          const m = l.match(/^\s*(?:[-*\u2022]|\d+[.)])\s+(.*)$/);
+          return m ? (
+            <span key={i} className="flex gap-2">
+              <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-border-strong" />
+              <span className="min-w-0">{m[1]}</span>
+            </span>
+          ) : (
+            <span key={i} className="block">{l}</span>
+          );
+        })}
+    </span>
   );
 }

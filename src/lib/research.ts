@@ -101,7 +101,7 @@ KNOWN INFORMATION
 ${known.length ? known.map((k) => `- ${k}`).join("\n") : "- None recorded yet"}
 
 RESEARCH INSTRUCTIONS
-1. Research the company using public sources: website, maps listings, reviews, job posts, socials, press.
+1. Research the company across every public surface, not just the website: Google Business Profile and the individual reviews (read the negative ones closely), Yelp, BBB, Facebook, Instagram, TikTok, YouTube, LinkedIn (company page AND the owner/leaders personally, including their recent posts), Indeed/ZipRecruiter/Glassdoor job posts and employee reviews, local news and trade press, permits or registrations where visible, and any tooling footprints on the site (booking widgets, chat widgets, form providers, payment processors). Follow the owner by name once identified - their own posts are often the best Why Now signal. Cross-check data-broker claims (ZoomInfo, PitchBook) against primary sources before trusting them; same-name companies get conflated.
 2. Be specific and evidence-led. Label every assumption as an assumption.
 3. Describe how the business actually operates today, not how it markets itself.
 4. Identify where throughput is constrained by a person or a manual step.
@@ -124,6 +124,7 @@ Use exactly these keys, all values strings except opportunityValue (number):
 }
 
 Field guidance:
+FORMAT: businessSummary and internalNotes read as short prose. Every other research field is written as short "- " bullet lines, one fact per line, so it scans in the dashboard - lead with the fact, follow with the evidence in the same line.
 - businessSummary: what it does, how it makes money, scale, market position.
 - customerJourney: the real path from first contact to delivered outcome.
 - decisionMaker: name, role, priorities, most credible way to reach them.
@@ -369,39 +370,63 @@ export function researchFieldCount(parsed: ParsedResearch): number {
 }
 
 /**
- * The send-ready outreach email. Single source of truth shared by the preview
- * and the copy button so what the operator approves is what gets pasted.
- * Plain text — pastes cleanly into Gmail/Outlook without formatting surprises.
+ * Default outreach body. Lives here (not in the component) so the preview,
+ * the copy button and the settings default all share one source of truth.
+ */
+export const DEFAULT_EMAIL_TEMPLATE = `Hi {{firstName}},
+
+I spent some time looking at how {{company}} runs today{{industryClause}}. The thing that stood out: {{bottleneck}}.
+
+I recorded a short walkthrough for you and attached a written audit — nine sections covering visibility, lead capture, sales process and operations, with the evidence behind each finding. No pitch, just what we found.
+
+If any of it lands, I'd genuinely enjoy talking it through: {{bookingUrl}}
+
+— {{senderName}}, {{senderCompany}}
+{{website}}`;
+
+/**
+ * The send-ready outreach email. Plain text — pastes cleanly into Gmail.
+ * Body comes from the editable template in settings; tokens are filled from
+ * the prospect's parsed research, so one template personalises per company.
  */
 export function buildOutreachEmail(
   prospect: Prospect,
-  settings: { senderName: string; senderCompany: string; websiteUrl: string; bookingUrl: string },
+  settings: {
+    senderName: string;
+    senderCompany: string;
+    websiteUrl: string;
+    bookingUrl: string;
+    emailTemplate?: string;
+  },
 ): { subject: string; body: string } {
   const firstName = (prospect.owner || "there").split(/\s+/)[0];
   const subject = prospect.outreachAngle
     ? `${prospect.company}: ${prospect.outreachAngle}`
     : `A short systems teardown for ${prospect.company}`;
-  const bottleneck =
+  const rawBottleneck =
     prospect.research.bottlenecks
       .split("\n")
       .find((l) => l.trim())
-      ?.replace(/^\d+[.)]\s*/, "")
+      ?.replace(/^[-*\u2022]?\s*\d*[.)]?\s*/, "")
       .replace(/\.$/, "") ?? "a coordination step that is still handled by hand";
+  const bottleneck = rawBottleneck.charAt(0).toLowerCase() + rawBottleneck.slice(1);
 
-  const body = [
-    `Hi ${firstName},`,
-    ``,
-    `I spent some time looking at how ${prospect.company} runs today` +
-      (prospect.industry ? ` compared to other ${prospect.industry.toLowerCase()} operators` : "") +
-      `. The thing that stood out: ${bottleneck.charAt(0).toLowerCase() + bottleneck.slice(1)}.`,
-    ``,
-    `I recorded a short walkthrough for you and attached a written audit — nine sections covering visibility, lead capture, sales process and operations, with the evidence behind each finding. No pitch, just what we found.`,
-    ``,
-    `If any of it lands, I'd genuinely enjoy talking it through: ${settings.bookingUrl}`,
-    ``,
-    `— ${settings.senderName}, ${settings.senderCompany}`,
-    settings.websiteUrl,
-  ].join("\n");
+  const tokens: Record<string, string> = {
+    firstName,
+    owner: prospect.owner || "there",
+    company: prospect.company,
+    industryClause: prospect.industry
+      ? ` compared to other ${prospect.industry.toLowerCase()} operators`
+      : "",
+    bottleneck,
+    whyNow: prospect.whyNowNarrative,
+    bookingUrl: settings.bookingUrl,
+    website: settings.websiteUrl,
+    senderName: settings.senderName,
+    senderCompany: settings.senderCompany,
+  };
 
+  const template = settings.emailTemplate?.trim() ? settings.emailTemplate : DEFAULT_EMAIL_TEMPLATE;
+  const body = template.replace(/\{\{(\w+)\}\}/g, (_, key: string) => tokens[key] ?? "");
   return { subject, body };
 }

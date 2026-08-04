@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Search, SlidersHorizontal, Users } from "lucide-react";
+import { Check, Search, SlidersHorizontal, Trash2, Users } from "lucide-react";
 import { EmptyState, PageHeader, Panel } from "@/components/kit/Panel";
 import { StatusPill, TierTag } from "@/components/kit/Tags";
 import { useStore } from "@/lib/store";
@@ -47,6 +47,28 @@ function ProspectsPage() {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ProspectStatus | "all">("all");
   const [sort, setSort] = useState<SortKey>("priority");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleSelected = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const deleteSelected = () => {
+    if (!selected.size) return;
+    const ok = window.confirm(
+      `Delete ${selected.size} prospect${selected.size === 1 ? "" : "s"}? This removes their research, audit and timeline for everyone. This cannot be undone.`,
+    );
+    if (!ok) return;
+    selected.forEach((id) => deleteProspect(id));
+    toast(`${selected.size} prospect${selected.size === 1 ? "" : "s"} removed`);
+    setSelected(new Set());
+    setSelectMode(false);
+  };
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -153,6 +175,38 @@ function ProspectsPage() {
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-2">
+            {selectMode ? (
+              <>
+                <button
+                  type="button"
+                  onClick={deleteSelected}
+                  disabled={!selected.size}
+                  className="inline-flex items-center gap-1.5 rounded-[8px] bg-destructive px-3 py-1.5 text-[12px] font-medium text-destructive-foreground transition-opacity disabled:opacity-40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete{selected.size ? ` (${selected.size})` : ""}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectMode(false);
+                    setSelected(new Set());
+                  }}
+                  className="rounded-[8px] border border-border px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSelectMode(true)}
+                className="rounded-[8px] border border-border px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+              >
+                Select
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -184,6 +238,30 @@ function ProspectsPage() {
               <ContextMenu key={p.id}>
                 <ContextMenuTrigger asChild>
                   <li className="border-b border-border last:border-b-0">
+                    {selectMode ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleSelected(p.id)}
+                        className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-surface-raised"
+                      >
+                        <span
+                          className={cn(
+                            "flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border",
+                            selected.has(p.id)
+                              ? "border-foreground bg-foreground text-background"
+                              : "border-border text-transparent",
+                          )}
+                        >
+                          <Check className="h-3 w-3" strokeWidth={2.5} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[13px] font-medium">{p.company}</span>
+                          <span className="block truncate text-[11px] text-subtle">
+                            {p.industry} · {p.owner || "Owner unknown"}
+                          </span>
+                        </span>
+                      </button>
+                    ) : (
                     <Link
                       to="/prospects/$prospectId"
                       params={{ prospectId: p.id }}
@@ -208,6 +286,7 @@ function ProspectsPage() {
                       </p>
 
                     </Link>
+                    )}
                   </li>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="w-56 rounded-[10px] border-border bg-surface">

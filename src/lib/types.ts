@@ -81,6 +81,8 @@ export interface WorkspaceSettings {
   senderCompany: string;
   bookingUrl: string;
   websiteUrl: string;
+  /** Outreach email body template. Tokens: {{firstName}} {{owner}} {{company}} {{industryClause}} {{bottleneck}} {{whyNow}} {{bookingUrl}} {{website}} {{senderName}} {{senderCompany}} */
+  emailTemplate: string;
 }
 
 export interface OpsNode {

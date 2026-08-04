@@ -7,6 +7,7 @@ import { EditableText, FieldRow } from "@/components/kit/Editable";
 import { OpsDiagram } from "@/components/flow/OpsDiagram";
 import { ResearchWorkspace } from "@/components/research/ResearchWorkspace";
 import { EmailPreview } from "@/components/outreach/EmailPreview";
+import { AssistantPanel } from "@/components/assistant/AssistantPanel";
 import { useStore } from "@/lib/store";
 import { currency, dateTime, relativeDay } from "@/lib/format";
 import { AUDIT_SECTIONS, PIPELINE_STEPS, STATUS_LABEL, STATUS_ORDER, WHY_NOW_SIGNALS } from "@/lib/domain";
@@ -29,6 +30,7 @@ const TABS = [
   ["research", "Research Workspace"],
   ["audit", "Audit"],
   ["outreach", "Email & Outreach"],
+  ["analyst", "Analyst"],
   ["operations", "Current vs Future"],
   ["attachments", "Attachments"],
   ["timeline", "Timeline"],
@@ -440,6 +442,11 @@ function ProspectWorkspace() {
               />
             </div>
           </Panel>
+        </TabsContent>
+
+        {/* ANALYST */}
+        <TabsContent value="analyst" className="mt-6">
+          <AssistantPanel prospect={prospect} />
         </TabsContent>
 
         {/* CURRENT vs FUTURE */}

@@ -1,4 +1,5 @@
-import type { Prospect, ResearchSection } from "./types";
+import { AUDIT_SECTIONS } from "./domain";
+import type { Audit, AuditItem, AuditSectionKey, Prospect, ResearchSection } from "./types";
 
 export interface ResearchFieldSpec {
   key: keyof ResearchSection | "opportunityValue" | "internalNotes" | "whyNow";
@@ -129,12 +130,81 @@ Field guidance:
 - currentTechnology: systems in use, how they connect, where data is re-keyed.
 - bottlenecks: numbered lines; name the constrained step and who owns it.
 - opportunities: numbered lines; each states the measurable outcome unlocked.
-- whyNow: the specific trigger event and the evidence behind it.
+- whyNow: the specific trigger event, the evidence, and how recent it is. If there
+  is no genuine signal, write "No strong signal found" — do not manufacture one.
 - opportunityValue: single annualised USD figure, digits only, e.g. 96000.
-- internalNotes: positioning, objections to expect, language to avoid.`;
+- internalNotes: positioning, objections to expect, language to avoid, and the
+  basis for the opportunity value.
+
+In the same JSON object, also include an "audit" key covering these nine sections:
+${AUDIT_SECTIONS.map((s) => `- "${s.key}": ${s.brief}`).join("\n")}
+
+Each section is an object with four string fields:
+{ "observation": "", "evidence": "", "opportunity": "", "recommendation": "" }
+- observation: what is true today, stated concretely. If a section cannot be
+  assessed from public evidence, write "Could not assess from public sources" and
+  leave the other three fields empty.
+- evidence: the specific thing observed — a page, review, form, or posting.
+- opportunity: what improving this is worth to THIS business.
+- recommendation: what Luuno would install or connect. Augment, never replace.
+Aim for 2-4 sentences per field. One thin line reads as generic filler.
+
+Finally include a "videoKit" key:
+{ "theOneObservation": "", "whatToShowOnScreen": "", "openingLine": "", "curiosityClose": "" }
+- theOneObservation: the single most compelling finding — visually demonstrable,
+  specific enough that it could only apply to this company.
+- whatToShowOnScreen: the exact page/review/form to screen-share.
+- openingLine: one natural spoken sentence proving real research, no hype.
+- curiosityClose: one spoken sentence pointing at the attached report without
+  explaining it.
+
+If no observation is specific enough for the videoKit, begin internalNotes with
+"WEAK CANDIDATE — consider Tier D." An honest weak result beats a padded one.`;
 }
 
-export type ParsedResearch = Partial<Record<ResearchFieldSpec["key"], string>>;
+export interface ParsedVideoKit {
+  theOneObservation?: string;
+  whatToShowOnScreen?: string;
+  openingLine?: string;
+  curiosityClose?: string;
+}
+
+export type ParsedResearch = Partial<Record<ResearchFieldSpec["key"], string>> & {
+  audit?: Partial<Record<AuditSectionKey, Partial<AuditItem>>>;
+  videoKit?: ParsedVideoKit;
+};
+
+const AUDIT_ITEM_FIELDS = ["observation", "evidence", "opportunity", "recommendation"] as const;
+
+/** Pulls the nine audit sections out of a parsed JSON payload, tolerating partial data. */
+function parseAuditPayload(value: unknown): ParsedResearch["audit"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const out: NonNullable<ParsedResearch["audit"]> = {};
+  for (const section of AUDIT_SECTIONS) {
+    const raw = record[section.key];
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as Record<string, unknown>;
+    const parsed: Partial<AuditItem> = {};
+    for (const field of AUDIT_ITEM_FIELDS) {
+      const text = item[field];
+      if (typeof text === "string" && text.trim()) parsed[field] = text.trim();
+    }
+    if (Object.keys(parsed).length) out[section.key] = parsed;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function parseVideoKitPayload(value: unknown): ParsedVideoKit | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const out: ParsedVideoKit = {};
+  for (const key of ["theOneObservation", "whatToShowOnScreen", "openingLine", "curiosityClose"] as const) {
+    const text = record[key];
+    if (typeof text === "string" && text.trim()) out[key] = text.trim();
+  }
+  return Object.keys(out).length ? out : undefined;
+}
 
 /** Extracts the first balanced JSON object from a response, ignoring fences and prose. */
 function extractJsonObject(raw: string): unknown | null {
@@ -182,6 +252,10 @@ function fromJson(raw: string): ParsedResearch | null {
         : String(value);
     if (text.trim()) out[spec.key] = text.trim();
   }
+  const audit = parseAuditPayload(record.audit);
+  if (audit) out.audit = audit;
+  const videoKit = parseVideoKitPayload(record.videoKit);
+  if (videoKit) out.videoKit = videoKit;
   return Object.keys(out).length ? out : null;
 }
 
@@ -246,7 +320,39 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
     } else research[spec.key as keyof ResearchSection] = value;
   }
 
-  return { research, notes, whyNowNarrative, opportunityValue };
+  // Merge parsed audit sections. Only fields the response actually filled are
+  // overwritten, so manual edits to untouched fields survive a re-parse.
+  const audit: Audit = { ...prospect.audit };
+  if (parsed.audit) {
+    for (const section of AUDIT_SECTIONS) {
+      const incoming = parsed.audit[section.key];
+      if (!incoming) continue;
+      audit[section.key] = { ...audit[section.key], ...incoming };
+    }
+  }
+
+  // videoKit has no fields of its own in the app yet; preserve it in notes so
+  // the video script skeleton is never lost.
+  if (parsed.videoKit) {
+    const kit = parsed.videoKit;
+    const block = [
+      "— VIDEO KIT —",
+      kit.theOneObservation ? `The one observation: ${kit.theOneObservation}` : null,
+      kit.whatToShowOnScreen ? `Show on screen: ${kit.whatToShowOnScreen}` : null,
+      kit.openingLine ? `Opening line: ${kit.openingLine}` : null,
+      kit.curiosityClose ? `Curiosity close: ${kit.curiosityClose}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+    notes = notes.trim() ? `${notes.trim()}\n\n${block}` : block;
+  }
+
+  return { research, notes, whyNowNarrative, opportunityValue, audit };
+}
+
+/** Count of audit sections the parse populated — for the success toast. */
+export function parsedAuditSectionCount(parsed: ParsedResearch): number {
+  return parsed.audit ? Object.keys(parsed.audit).length : 0;
 }
 
 export function researchFieldCount(parsed: ParsedResearch): number {

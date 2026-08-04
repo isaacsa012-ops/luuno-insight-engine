@@ -4,21 +4,23 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { SEED_PROSPECTS, emptyPipeline, normalizeProspect } from "./domain";
+import { supabase, supabaseEnabled } from "./supabase";
 import type { ActivityEntry, Prospect, TimelineEvent, WorkspaceSettings } from "./types";
 
 const STORAGE_KEY = "luuno.growth-engine.v2";
 
 export const DEFAULT_SETTINGS: WorkspaceSettings = {
-  weeklyOutreachGoal: 100,
+  weeklyOutreachGoal: 10,
   weekStart: "monday",
-  senderName: "Marvin",
+  senderName: "Isaac",
   senderCompany: "Luuno",
-  bookingUrl: "https://luuno.io/book",
-  websiteUrl: "https://luuno.io",
+  bookingUrl: "https://app.flozy.com/#/bookings/invite-hdywym240m4rlihr5",
+  websiteUrl: "https://www.luuno.ai",
 };
 
 /**
@@ -92,7 +94,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<WorkspaceSettings>(DEFAULT_SETTINGS);
   const [hydrated, setHydrated] = useState(false);
 
+  // Tracks the JSON last written to Supabase per prospect id, so pushes only
+  // touch rows that actually changed. null until the first remote load.
+  const syncedRef = useRef<Map<string, string> | null>(null);
+
   useEffect(() => {
+    if (supabaseEnabled && supabase) {
+      let cancelled = false;
+      (async () => {
+        const [{ data: rows }, { data: acts }, { data: cfg }] = await Promise.all([
+          supabase.from("prospects").select("id, data").order("updated_at", { ascending: false }),
+          supabase.from("activity").select("*").order("at", { ascending: false }).limit(60),
+          supabase.from("workspace_settings").select("data").eq("id", 1).maybeSingle(),
+        ]);
+        if (cancelled) return;
+        const synced = new Map<string, string>();
+        const remote = (rows ?? []).map((r) => {
+          const p = normalizeProspect(r.data as Partial<Prospect> & { id: string });
+          synced.set(p.id, JSON.stringify(p));
+          return p;
+        });
+        syncedRef.current = synced;
+        // Shared DB is the source of truth. An empty DB starts empty — the
+        // demo seed companies never sync to the team workspace.
+        setProspects(remote);
+        setActivity(
+          (acts ?? []).map((a) => ({
+            id: a.id as string,
+            at: a.at as string,
+            prospectId: a.prospect_id as string,
+            company: a.company as string,
+            label: a.label as string,
+          })),
+        );
+        if (cfg?.data) setSettings({ ...DEFAULT_SETTINGS, ...(cfg.data as WorkspaceSettings) });
+        setHydrated(true);
+      })().catch(() => setHydrated(true));
+      return () => {
+        cancelled = true;
+      };
+    }
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
@@ -109,8 +150,59 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setHydrated(true);
   }, []);
 
+  // Push prospect changes to Supabase, debounced. Only rows whose serialized
+  // form changed are written; rows that disappeared locally are deleted.
   useEffect(() => {
-    if (!hydrated) return;
+    if (!supabaseEnabled || !supabase || !hydrated || !syncedRef.current) return;
+    const timer = setTimeout(async () => {
+      const synced = syncedRef.current!;
+      const seen = new Set<string>();
+      const upserts: { id: string; company: string; data: Prospect }[] = [];
+      for (const p of prospects) {
+        seen.add(p.id);
+        const json = JSON.stringify(p);
+        if (synced.get(p.id) !== json) {
+          upserts.push({ id: p.id, company: p.company, data: p });
+          synced.set(p.id, json);
+        }
+      }
+      const removed = [...synced.keys()].filter((id) => !seen.has(id));
+      for (const id of removed) synced.delete(id);
+      if (upserts.length) await supabase!.from("prospects").upsert(upserts);
+      if (removed.length) await supabase!.from("prospects").delete().in("id", removed);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [prospects, hydrated]);
+
+  useEffect(() => {
+    if (!supabaseEnabled || !supabase || !hydrated || !syncedRef.current) return;
+    const latest = activity[0];
+    if (!latest) return;
+    supabase
+      .from("activity")
+      .upsert({
+        id: latest.id,
+        at: latest.at,
+        prospect_id: latest.prospectId,
+        company: latest.company,
+        label: latest.label,
+      })
+      .then(undefined, () => undefined);
+  }, [activity, hydrated]);
+
+  useEffect(() => {
+    if (!supabaseEnabled || !supabase || !hydrated || !syncedRef.current) return;
+    const timer = setTimeout(() => {
+      supabase!
+        .from("workspace_settings")
+        .upsert({ id: 1, data: settings })
+        .then(undefined, () => undefined);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, [settings, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated || supabaseEnabled) return;
     try {
       window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ prospects, activity, settings }));
     } catch {

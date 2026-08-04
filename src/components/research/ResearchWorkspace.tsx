@@ -9,6 +9,7 @@ import { EditableText } from "@/components/kit/Editable";
 import {
   RESEARCH_SPEC,
   applyParsedResearch,
+  parsedAuditSectionCount,
   buildResearchPrompt,
   parseResearchResponse,
   researchFieldCount,
@@ -70,19 +71,24 @@ export function ResearchWorkspace({ prospect }: { prospect: Prospect }) {
   const parse = () => {
     const parsed = parseResearchResponse(response);
     const count = researchFieldCount(parsed);
-    if (!count) {
-      toast.error("No structured sections found. Keep the ## headings intact.");
+    const auditCount = parsedAuditSectionCount(parsed);
+    if (!count && !auditCount) {
+      toast.error("No structured sections found. Paste the full JSON response.");
       return;
     }
     updateProspect(prospect.id, applyParsedResearch(prospect, parsed));
     addTimelineEvent(prospect.id, {
       kind: "note",
       label: "Research populated",
-      detail: `${count} sections parsed from structured response.`,
+      detail: `${count} research sections and ${auditCount} audit sections parsed.`,
     });
     logActivity(prospect.id, "Research populated");
     setResponse("");
-    toast.success(`${count} research sections populated`);
+    toast.success(
+      auditCount
+        ? `${count} research sections + ${auditCount} audit sections populated`
+        : `${count} research sections populated`,
+    );
   };
 
   return (

@@ -321,6 +321,27 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
     } else research[spec.key as keyof ResearchSection] = value;
   }
 
+  // Seed diagram nodes from the parsed tech stack so the Current vs Future
+  // view shows THEIR systems the moment research lands. Only when the
+  // prospect has no nodes yet — manual node work is never overwritten.
+  let currentOps = prospect.currentOps;
+  if (!currentOps.length && parsed.currentTechnology) {
+    currentOps = parsed.currentTechnology
+      .split("\n")
+      .map((l) => l.replace(/^[-*\u2022]?\s*\d*[.)]?\s*/, "").trim())
+      .filter(Boolean)
+      .slice(0, 6)
+      .map((line, i) => {
+        const cut = line.split(/[:\u2013\u2014(]|,\s|\s-\s/)[0].trim();
+        const label = (cut.length >= 3 && cut.length <= 40 ? cut : line.slice(0, 40)).trim();
+        return {
+          id: `ops-${i}-${Date.now().toString(36)}`,
+          label,
+          sublabel: line.length > label.length ? line.slice(label.length).replace(/^[\s:\u2013\u2014(-]+/, "").slice(0, 60) : "",
+        };
+      });
+  }
+
   // The Overview/Outreach screens read the top-level owner field, which manual
   // entry owns. When it's still empty, seed it with the name portion of the
   // parsed decision maker (text before the first comma/paren/dash).
@@ -357,7 +378,7 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
     notes = notes.trim() ? `${notes.trim()}\n\n${block}` : block;
   }
 
-  return { research, notes, whyNowNarrative, opportunityValue, audit, owner };
+  return { research, notes, whyNowNarrative, opportunityValue, audit, owner, currentOps };
 }
 
 /** Count of audit sections the parse populated — for the success toast. */

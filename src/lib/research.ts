@@ -320,6 +320,15 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
     } else research[spec.key as keyof ResearchSection] = value;
   }
 
+  // The Overview/Outreach screens read the top-level owner field, which manual
+  // entry owns. When it's still empty, seed it with the name portion of the
+  // parsed decision maker (text before the first comma/paren/dash).
+  let owner = prospect.owner;
+  if (!owner.trim() && parsed.decisionMaker) {
+    const name = parsed.decisionMaker.split(/[,(\u2013\u2014-]/)[0].trim();
+    if (name && name.length <= 60 && !/not verified/i.test(name)) owner = name;
+  }
+
   // Merge parsed audit sections. Only fields the response actually filled are
   // overwritten, so manual edits to untouched fields survive a re-parse.
   const audit: Audit = { ...prospect.audit };
@@ -347,7 +356,7 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
     notes = notes.trim() ? `${notes.trim()}\n\n${block}` : block;
   }
 
-  return { research, notes, whyNowNarrative, opportunityValue, audit };
+  return { research, notes, whyNowNarrative, opportunityValue, audit, owner };
 }
 
 /** Count of audit sections the parse populated — for the success toast. */

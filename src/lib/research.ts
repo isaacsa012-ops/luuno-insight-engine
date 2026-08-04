@@ -367,3 +367,41 @@ export function parsedAuditSectionCount(parsed: ParsedResearch): number {
 export function researchFieldCount(parsed: ParsedResearch): number {
   return RESEARCH_SPEC.filter((s) => (parsed[s.key] ?? "").trim().length > 0).length;
 }
+
+/**
+ * The send-ready outreach email. Single source of truth shared by the preview
+ * and the copy button so what the operator approves is what gets pasted.
+ * Plain text — pastes cleanly into Gmail/Outlook without formatting surprises.
+ */
+export function buildOutreachEmail(
+  prospect: Prospect,
+  settings: { senderName: string; senderCompany: string; websiteUrl: string; bookingUrl: string },
+): { subject: string; body: string } {
+  const firstName = (prospect.owner || "there").split(/\s+/)[0];
+  const subject = prospect.outreachAngle
+    ? `${prospect.company}: ${prospect.outreachAngle}`
+    : `A short systems teardown for ${prospect.company}`;
+  const bottleneck =
+    prospect.research.bottlenecks
+      .split("\n")
+      .find((l) => l.trim())
+      ?.replace(/^\d+[.)]\s*/, "")
+      .replace(/\.$/, "") ?? "a coordination step that is still handled by hand";
+
+  const body = [
+    `Hi ${firstName},`,
+    ``,
+    `I spent some time looking at how ${prospect.company} runs today` +
+      (prospect.industry ? ` compared to other ${prospect.industry.toLowerCase()} operators` : "") +
+      `. The thing that stood out: ${bottleneck.charAt(0).toLowerCase() + bottleneck.slice(1)}.`,
+    ``,
+    `I recorded a short walkthrough for you and attached a written audit — nine sections covering visibility, lead capture, sales process and operations, with the evidence behind each finding. No pitch, just what we found.`,
+    ``,
+    `If any of it lands, I'd genuinely enjoy talking it through: ${settings.bookingUrl}`,
+    ``,
+    `— ${settings.senderName}, ${settings.senderCompany}`,
+    settings.websiteUrl,
+  ].join("\n");
+
+  return { subject, body };
+}

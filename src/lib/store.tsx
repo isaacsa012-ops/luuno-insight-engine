@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { SEED_PROSPECTS, emptyPipeline, normalizeProspect } from "./domain";
+import { DEFAULT_EMAIL_TEMPLATE } from "./research";
 import { supabase, supabaseEnabled } from "./supabase";
 import type { ActivityEntry, Prospect, TimelineEvent, WorkspaceSettings } from "./types";
 
@@ -21,6 +22,7 @@ export const DEFAULT_SETTINGS: WorkspaceSettings = {
   senderCompany: "Luuno",
   bookingUrl: "https://app.flozy.com/#/bookings/invite-hdywym240m4rlihr5",
   websiteUrl: "https://www.luuno.ai",
+  emailTemplate: DEFAULT_EMAIL_TEMPLATE,
 };
 
 /**

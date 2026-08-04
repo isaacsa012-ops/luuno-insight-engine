@@ -1,8 +1,11 @@
-import { CalendarCheck, FileText, Globe, Paperclip, Play } from "lucide-react";
+import { useState } from "react";
+import { CalendarCheck, Check, ClipboardCopy, FileText, Globe, Paperclip, Play } from "lucide-react";
 import { Panel, PanelHeader } from "@/components/kit/Panel";
 import { EditableText } from "@/components/kit/Editable";
 import { useStore } from "@/lib/store";
 import { intelligenceScore } from "@/lib/scoring";
+import { buildOutreachEmail } from "@/lib/research";
+import { toast } from "sonner";
 import type { Prospect } from "@/lib/types";
 
 /**
@@ -11,12 +14,21 @@ import type { Prospect } from "@/lib/types";
  */
 export function EmailPreview({ prospect }: { prospect: Prospect }) {
   const { settings, updateProspect } = useStore();
+  const [copied, setCopied] = useState<"subject" | "body" | null>(null);
   const firstName = (prospect.owner || "there").split(/\s+/)[0];
-  const subject =
-    prospect.outreachAngle
-      ? `${prospect.company}: ${prospect.outreachAngle}`
-      : `A short systems teardown for ${prospect.company}`;
+  const { subject, body } = buildOutreachEmail(prospect, settings);
   const score = intelligenceScore(prospect);
+
+  const copy = async (kind: "subject" | "body") => {
+    try {
+      await navigator.clipboard.writeText(kind === "subject" ? subject : body);
+      setCopied(kind);
+      toast.success(kind === "subject" ? "Subject copied" : "Email body copied — paste into Gmail");
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      toast.error("Couldn't reach the clipboard");
+    }
+  };
 
   const bottleneck =
     prospect.research.bottlenecks.split("\n").find((l) => l.trim())?.replace(/^\d+[.)]\s*/, "") ??
@@ -28,9 +40,27 @@ export function EmailPreview({ prospect }: { prospect: Prospect }) {
         title="Outreach Preview"
         description="Exactly what the recipient receives. Nothing is sent from this screen."
         action={
-          <span className="text-[11px] text-subtle">
-            {prospect.pipeline.email_sent ? "Sent" : "Draft"}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => copy("subject")}
+              className="inline-flex items-center gap-1.5 rounded-[8px] border border-border px-2.5 py-1.5 text-[11px] text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+            >
+              {copied === "subject" ? <Check className="h-3 w-3" /> : <ClipboardCopy className="h-3 w-3" />}
+              Subject
+            </button>
+            <button
+              type="button"
+              onClick={() => copy("body")}
+              className="inline-flex items-center gap-1.5 rounded-[8px] bg-foreground px-2.5 py-1.5 text-[11px] font-medium text-background transition-colors hover:bg-foreground/90"
+            >
+              {copied === "body" ? <Check className="h-3 w-3" /> : <ClipboardCopy className="h-3 w-3" />}
+              Copy email
+            </button>
+            <span className="text-[11px] text-subtle">
+              {prospect.pipeline.email_sent ? "Sent" : "Draft"}
+            </span>
+          </div>
         }
       />
 

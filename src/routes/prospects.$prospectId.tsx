@@ -28,9 +28,8 @@ const TABS = [
   ["overview", "Overview"],
   ["research", "Research Workspace"],
   ["audit", "Audit"],
-  ["outreach", "Outreach"],
+  ["outreach", "Email & Outreach"],
   ["operations", "Current vs Future"],
-  ["pipeline", "Pipeline"],
   ["attachments", "Attachments"],
   ["timeline", "Timeline"],
 ] as const;
@@ -407,9 +406,7 @@ function ProspectWorkspace() {
               description="Marking a step complete updates the pipeline, the timeline and the weekly goal."
             />
             <ul className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
-              {PIPELINE_STEPS.filter((s) =>
-                ["video_recorded", "email_ready", "pdf_attached", "email_sent", "follow_up"].includes(s.key),
-              ).map((s) => (
+              {PIPELINE_STEPS.map((s) => (
                 <li key={s.key} className="bg-surface">
                   <button
                     type="button"
@@ -431,6 +428,17 @@ function ProspectWorkspace() {
                 </li>
               ))}
             </ul>
+          </Panel>
+          <Panel>
+            <PanelHeader title="Internal Notes" description="Positioning, objections and language that works. Never leaves Luuno." />
+            <div className="px-5 py-4">
+              <EditableText
+                multiline
+                rows={8}
+                value={prospect.notes}
+                onChange={(v) => patch({ notes: v })}
+              />
+            </div>
           </Panel>
         </TabsContent>
 
@@ -489,58 +497,6 @@ function ProspectWorkspace() {
               >
                 Add system node
               </button>
-            </div>
-          </Panel>
-        </TabsContent>
-
-        {/* PIPELINE */}
-        <TabsContent value="pipeline" className="mt-6 space-y-6">
-          <Panel>
-            <PanelHeader
-              title="Production Checklist"
-              description={`${completedSteps} of ${PIPELINE_STEPS.length} steps complete.`}
-              action={
-                <Link
-                  to="/pipeline"
-                  className="rounded-[8px] border border-border px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
-                >
-                  Open Board
-                </Link>
-              }
-            />
-            <ul className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2">
-              {PIPELINE_STEPS.map((s) => (
-                <li key={s.key} className="bg-surface">
-                  <button
-                    type="button"
-                    onClick={() => toggleStep(s.key, s.label)}
-                    className="grid w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-surface-raised"
-                  >
-                    <span
-                      className={cn(
-                        "flex h-5 w-5 items-center justify-center rounded-[6px] border",
-                        prospect.pipeline[s.key]
-                          ? "border-foreground bg-foreground text-background"
-                          : "border-border text-transparent",
-                      )}
-                    >
-                      <Check className="h-3 w-3" strokeWidth={2.5} />
-                    </span>
-                    <span className="truncate text-[13px]">{s.label}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Panel>
-          <Panel>
-            <PanelHeader title="Internal Notes" description="Positioning, objections and language that works." />
-            <div className="px-5 py-4">
-              <EditableText
-                multiline
-                rows={8}
-                value={prospect.notes}
-                onChange={(v) => patch({ notes: v })}
-              />
             </div>
           </Panel>
         </TabsContent>

@@ -96,7 +96,7 @@ function AuditReport() {
               type="button"
               onClick={() => {
                 toast.success("Print dialog opened — save as PDF");
-                window.print();
+                window.location.assign(`/report/${prospect.id}`);
               }}
               className="inline-flex h-9 items-center gap-2 rounded-[8px] bg-foreground px-3 text-[12px] font-medium text-background"
             >

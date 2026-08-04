@@ -450,7 +450,7 @@ function ProspectWorkspace() {
               description="Current systems on the left. Simulate the future state to route every signal through the Luuno intelligence layer."
             />
             <div className="p-4">
-              <OpsDiagram ops={prospect.currentOps} />
+              <OpsDiagram prospect={prospect} />
             </div>
           </Panel>
           <Panel>

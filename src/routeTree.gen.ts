@@ -18,6 +18,7 @@ import { Route as AuditIndexRouteImport } from './routes/audit.index'
 import { Route as AuditProspectIdRouteImport } from './routes/audit.$prospectId'
 import { Route as ProspectsIndexRouteImport } from './routes/prospects.index'
 import { Route as ProspectsProspectIdRouteImport } from './routes/prospects.$prospectId'
+import { Route as ReportProspectIdRouteImport } from './routes/report.$prospectId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,6 +65,11 @@ const ProspectsProspectIdRoute = ProspectsProspectIdRouteImport.update({
   path: '/prospects/$prospectId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportProspectIdRoute = ReportProspectIdRouteImport.update({
+  id: '/report/$prospectId',
+  path: '/report/$prospectId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/audit/$prospectId': typeof AuditProspectIdRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
+  '/report/$prospectId': typeof ReportProspectIdRoute
   '/audit/': typeof AuditIndexRoute
   '/prospects/': typeof ProspectsIndexRoute
 }
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/audit/$prospectId': typeof AuditProspectIdRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
+  '/report/$prospectId': typeof ReportProspectIdRoute
   '/audit': typeof AuditIndexRoute
   '/prospects': typeof ProspectsIndexRoute
 }
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/audit/$prospectId': typeof AuditProspectIdRoute
   '/prospects/$prospectId': typeof ProspectsProspectIdRoute
+  '/report/$prospectId': typeof ReportProspectIdRoute
   '/audit/': typeof AuditIndexRoute
   '/prospects/': typeof ProspectsIndexRoute
 }
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/audit/$prospectId'
     | '/prospects/$prospectId'
+    | '/report/$prospectId'
     | '/audit/'
     | '/prospects/'
   fileRoutesByTo: FileRoutesByTo
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/audit/$prospectId'
     | '/prospects/$prospectId'
+    | '/report/$prospectId'
     | '/audit'
     | '/prospects'
   id:
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/audit/$prospectId'
     | '/prospects/$prospectId'
+    | '/report/$prospectId'
     | '/audit/'
     | '/prospects/'
   fileRoutesById: FileRoutesById
@@ -140,6 +152,7 @@ export interface RootRouteChildren {
   PipelineRoute: typeof PipelineRoute
   SettingsRoute: typeof SettingsRoute
   ProspectsProspectIdRoute: typeof ProspectsProspectIdRoute
+  ReportProspectIdRoute: typeof ReportProspectIdRoute
   ProspectsIndexRoute: typeof ProspectsIndexRoute
 }
 
@@ -208,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProspectsProspectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/report/$prospectId': {
+      id: '/report/$prospectId'
+      path: '/report/$prospectId'
+      fullPath: '/report/$prospectId'
+      preLoaderRoute: typeof ReportProspectIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -230,6 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   PipelineRoute: PipelineRoute,
   SettingsRoute: SettingsRoute,
   ProspectsProspectIdRoute: ProspectsProspectIdRoute,
+  ReportProspectIdRoute: ReportProspectIdRoute,
   ProspectsIndexRoute: ProspectsIndexRoute,
 }
 export const routeTree = rootRouteImport

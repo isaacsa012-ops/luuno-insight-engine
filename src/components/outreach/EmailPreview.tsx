@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { CalendarCheck, Check, ClipboardCopy, FileText, Globe, Paperclip, Play } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Check, ClipboardCopy, FileDown, FileText, Paperclip, Play, Settings2 } from "lucide-react";
 import { Panel, PanelHeader } from "@/components/kit/Panel";
 import { EditableText } from "@/components/kit/Editable";
 import { useStore } from "@/lib/store";
 import { intelligenceScore } from "@/lib/scoring";
-import { buildOutreachEmail } from "@/lib/research";
+import { DEFAULT_EMAIL_TEMPLATE, buildOutreachEmail } from "@/lib/research";
 import { toast } from "sonner";
 import type { Prospect } from "@/lib/types";
 
@@ -13,8 +14,9 @@ import type { Prospect } from "@/lib/types";
  * the operator can approve the artefact before it leaves the building.
  */
 export function EmailPreview({ prospect }: { prospect: Prospect }) {
-  const { settings, updateProspect } = useStore();
+  const { settings, updateProspect, updateSettings } = useStore();
   const [copied, setCopied] = useState<"subject" | "body" | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState(false);
   const firstName = (prospect.owner || "there").split(/\s+/)[0];
   const { subject, body } = buildOutreachEmail(prospect, settings);
   const score = intelligenceScore(prospect);
@@ -79,18 +81,8 @@ export function EmailPreview({ prospect }: { prospect: Prospect }) {
 
       <div className="p-5">
         <article className="rounded-[10px] border border-border-strong bg-background p-6">
-          <p className="text-[13px] leading-relaxed text-foreground">Hi {firstName},</p>
-
-          <p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">
-            I spent some time looking at how {prospect.company} runs today
-            {prospect.industry ? ` compared to other ${prospect.industry.toLowerCase()} operators` : ""}.
-            The thing that stood out was {bottleneck.toLowerCase()}
-          </p>
-
-          <p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">
-            I put together a short walkthrough and a written audit — nine sections covering
-            visibility, lead capture, sales process and operations, with the evidence behind each
-            finding. No pitch, just what we found.
+          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-muted-foreground first-line:text-foreground">
+            {body}
           </p>
 
           <div className="mt-6 grid grid-cols-[132px_minmax(0,1fr)] gap-4 rounded-[10px] border border-border p-3">
@@ -121,21 +113,61 @@ export function EmailPreview({ prospect }: { prospect: Prospect }) {
             </span>
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background">
-              <CalendarCheck className="h-3.5 w-3.5" /> Book a consultation
-            </span>
-            <span className="inline-flex items-center gap-2 rounded-[8px] border border-border px-3 py-2 text-[12px] text-muted-foreground">
-              <Globe className="h-3.5 w-3.5" /> {settings.senderCompany} website
-            </span>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Link
+              to="/report/$prospectId"
+              params={{ prospectId: prospect.id }}
+              className="inline-flex items-center gap-2 rounded-[8px] bg-foreground px-3 py-2 text-[12px] font-medium text-background transition-colors hover:bg-foreground/90"
+            >
+              <FileDown className="h-3.5 w-3.5" /> Open report → Export PDF
+            </Link>
+            <button
+              type="button"
+              onClick={() =>
+                updateProspect(prospect.id, {
+                  pipeline: { ...prospect.pipeline, pdf_attached: !prospect.pipeline.pdf_attached },
+                })
+              }
+              className="inline-flex items-center gap-2 rounded-[8px] border border-border px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+            >
+              <Paperclip className="h-3.5 w-3.5" />
+              {prospect.pipeline.pdf_attached ? "PDF attached ✓" : "Mark PDF attached"}
+            </button>
           </div>
-
-          <p className="mt-6 text-[12px] leading-relaxed text-subtle">
-            — {settings.senderName}, {settings.senderCompany}
-            <br />
-            {settings.websiteUrl} · {settings.bookingUrl}
-          </p>
         </article>
+
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => setEditingTemplate((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-[11px] text-subtle transition-colors hover:text-foreground"
+          >
+            <Settings2 className="h-3 w-3" />
+            {editingTemplate ? "Close template editor" : "Edit email template"}
+          </button>
+          {editingTemplate ? (
+            <div className="mt-3 space-y-2">
+              <textarea
+                value={settings.emailTemplate}
+                onChange={(ev) => updateSettings({ emailTemplate: ev.target.value })}
+                rows={12}
+                className="w-full rounded-[10px] border border-border bg-background p-4 font-mono text-[12px] leading-relaxed text-foreground outline-none focus:border-border-strong"
+              />
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[11px] text-subtle">
+                  {"Tokens fill per prospect: {{firstName}} {{company}} {{industryClause}} {{bottleneck}} {{whyNow}} {{bookingUrl}} {{website}} {{senderName}} {{senderCompany}}"}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => updateSettings({ emailTemplate: DEFAULT_EMAIL_TEMPLATE })}
+                  className="text-[11px] text-subtle underline underline-offset-2 hover:text-foreground"
+                >
+                  Reset to default
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
 
         <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
           <div className="min-w-0">

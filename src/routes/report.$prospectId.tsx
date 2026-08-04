@@ -151,9 +151,8 @@ function ClientReport() {
             conversation.
           </p>
           <p className="mt-4 text-[14px] font-medium">
-            Book a consultation:{" "}
-            <a href={settings.bookingUrl} className="underline underline-offset-2">
-              {settings.bookingUrl.replace(/^https?:\/\//, "")}
+            <a href={settings.websiteUrl} className="underline underline-offset-2">
+              {settings.websiteUrl.replace(/^https?:\/\//, "")}
             </a>
           </p>
           <p className="mt-6 text-[11px] tracking-wider text-muted-foreground uppercase">

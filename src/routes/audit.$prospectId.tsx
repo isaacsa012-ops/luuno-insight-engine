@@ -139,7 +139,7 @@ function AuditReport() {
           description="Simulate how the Luuno intelligence layer sits inside the systems this business already runs."
         />
         <div className="px-5 py-5">
-          <OpsDiagram ops={prospect.currentOps} />
+          <OpsDiagram prospect={prospect} />
         </div>
       </Panel>
 

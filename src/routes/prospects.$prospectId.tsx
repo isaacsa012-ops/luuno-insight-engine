@@ -273,6 +273,13 @@ function ProspectWorkspace() {
               <FieldRow label="Email">
                 <EditableText value={prospect.email} onChange={(v) => patch({ email: v })} />
               </FieldRow>
+              <FieldRow label="LinkedIn">
+                <EditableText
+                  value={prospect.linkedin}
+                  onChange={(v) => patch({ linkedin: v })}
+                  placeholder="Profile or company URL"
+                />
+              </FieldRow>
               <FieldRow label="Current Tech Stack">
                 <EditableText
                   value={prospect.techStack.join(", ")}

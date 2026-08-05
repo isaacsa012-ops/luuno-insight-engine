@@ -6,6 +6,7 @@ import { Metric } from "@/components/kit/Metric";
 import { EmptyState, Meter, Panel, PanelHeader, PageHeader } from "@/components/kit/Panel";
 import { StatusPill, TierTag } from "@/components/kit/Tags";
 import { useStore } from "@/lib/store";
+import { useSessionName } from "@/lib/supabase";
 import { currency, relativeDay, timeAgo } from "@/lib/format";
 import {
   TIER_DIRECTIVE,
@@ -43,6 +44,7 @@ function daysLeftInWeek(): number {
 
 function Dashboard() {
   const { prospects, activity, settings, updateSettings, hydrated } = useStore();
+  const displayName = useSessionName(settings.senderName || "Luuno");
 
   const scored = useMemo(
     () =>
@@ -119,7 +121,7 @@ function Dashboard() {
     >
       <PageHeader
         eyebrow="Operating View"
-        title="Start with Tier A"
+        title={`Welcome, ${displayName}`}
         description="Every company carries a calculated priority score and one highlighted next action."
       />
 

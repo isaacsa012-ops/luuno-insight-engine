@@ -150,6 +150,17 @@ Each section is an object with four string fields:
 - recommendation: what Luuno would install or connect. Augment, never replace.
 Aim for 2-4 sentences per field. One thin line reads as generic filler.
 
+Also include a "contact" key:
+{ "phone": "", "email": "", "emailVerified": false, "linkedin": "" }
+- phone: the company's published main line, digits as published.
+- email: the single best outreach address found. Set emailVerified to true ONLY
+  if the address appears verbatim on an official primary source (their website,
+  BBB listing, government vendor profile). Pattern-inferred or data-broker
+  addresses stay emailVerified: false.
+- linkedin: URL of the decision maker's personal profile if found, else the
+  company page URL.
+Leave any unknown value as an empty string - never guess.
+
 Finally include a "videoKit" key:
 { "theOneObservation": "", "whatToShowOnScreen": "", "openingLine": "", "curiosityClose": "" }
 - theOneObservation: the single most compelling finding — visually demonstrable,
@@ -170,10 +181,30 @@ export interface ParsedVideoKit {
   curiosityClose?: string;
 }
 
+export interface ParsedContact {
+  phone?: string;
+  email?: string;
+  emailVerified?: boolean;
+  linkedin?: string;
+}
+
 export type ParsedResearch = Partial<Record<ResearchFieldSpec["key"], string>> & {
   audit?: Partial<Record<AuditSectionKey, Partial<AuditItem>>>;
   videoKit?: ParsedVideoKit;
+  contact?: ParsedContact;
 };
+
+function parseContactPayload(value: unknown): ParsedContact | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const out: ParsedContact = {};
+  for (const key of ["phone", "email", "linkedin"] as const) {
+    const text = record[key];
+    if (typeof text === "string" && text.trim()) out[key] = text.trim();
+  }
+  if (typeof record.emailVerified === "boolean") out.emailVerified = record.emailVerified;
+  return Object.keys(out).length ? out : undefined;
+}
 
 const AUDIT_ITEM_FIELDS = ["observation", "evidence", "opportunity", "recommendation"] as const;
 
@@ -257,6 +288,8 @@ function fromJson(raw: string): ParsedResearch | null {
   if (audit) out.audit = audit;
   const videoKit = parseVideoKitPayload(record.videoKit);
   if (videoKit) out.videoKit = videoKit;
+  const contact = parseContactPayload(record.contact);
+  if (contact) out.contact = contact;
   return Object.keys(out).length ? out : null;
 }
 
@@ -351,6 +384,21 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
     if (name && name.length <= 60 && !/not verified/i.test(name)) owner = name;
   }
 
+  // Header contact fields. Phone and LinkedIn fill whenever empty. Email is
+  // deliberately stricter: it only lands in the header - the field the Email
+  // tab sends to - when the research marks it VERIFIED. Unverified candidates
+  // stay in the decisionMaker text where they read as "check first".
+  let phone = prospect.phone;
+  let email = prospect.email;
+  let linkedin = prospect.linkedin;
+  if (parsed.contact) {
+    if (!phone.trim() && parsed.contact.phone) phone = parsed.contact.phone;
+    if (!linkedin.trim() && parsed.contact.linkedin) linkedin = parsed.contact.linkedin;
+    if (!email.trim() && parsed.contact.email && parsed.contact.emailVerified === true) {
+      email = parsed.contact.email;
+    }
+  }
+
   // Merge parsed audit sections. Only fields the response actually filled are
   // overwritten, so manual edits to untouched fields survive a re-parse.
   const audit: Audit = { ...prospect.audit };
@@ -378,7 +426,7 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
     notes = notes.trim() ? `${notes.trim()}\n\n${block}` : block;
   }
 
-  return { research, notes, whyNowNarrative, opportunityValue, audit, owner, currentOps };
+  return { research, notes, whyNowNarrative, opportunityValue, audit, owner, currentOps, phone, email, linkedin };
 }
 
 /** Count of audit sections the parse populated — for the success toast. */

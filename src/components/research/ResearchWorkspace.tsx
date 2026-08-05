@@ -72,7 +72,8 @@ export function ResearchWorkspace({ prospect }: { prospect: Prospect }) {
     const parsed = parseResearchResponse(response);
     const count = researchFieldCount(parsed);
     const auditCount = parsedAuditSectionCount(parsed);
-    if (!count && !auditCount) {
+    const hasContact = Boolean(parsed?.contact);
+    if (!count && !auditCount && !hasContact) {
       toast.error("No structured sections found. Paste the full JSON response.");
       return;
     }
@@ -87,7 +88,9 @@ export function ResearchWorkspace({ prospect }: { prospect: Prospect }) {
     toast.success(
       auditCount
         ? `${count} research sections + ${auditCount} audit sections populated`
-        : `${count} research sections populated`,
+        : count
+          ? `${count} research sections populated`
+          : "Contact details populated",
     );
   };
 

@@ -102,6 +102,7 @@ export interface Prospect {
 
   phone: string;
   email: string;
+  linkedin: string;
   techStack: string[];
   opportunityValue: number;
   status: ProspectStatus;

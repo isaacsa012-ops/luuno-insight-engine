@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Menu, Plus, Search, X } from "lucide-react";
 import { SidebarNav } from "./SidebarNav";
+import { LuunoAgent } from "@/components/assistant/LuunoAgent";
 import { CommandPalette } from "./CommandPalette";
 import { QuickCreateDialog } from "./QuickCreateDialog";
 import { cn } from "@/lib/utils";
@@ -159,6 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <main className="mx-auto w-full max-w-[1360px] px-4 py-10 sm:px-8 lg:px-12 lg:py-14">
           {children}
+          <LuunoAgent />
         </main>
       </div>
 

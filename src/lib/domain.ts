@@ -105,7 +105,7 @@ const days = (n: number) => {
   return d.toISOString();
 };
 
-type RawSeed = Omit<Prospect, "research" | "pipeline"> & {
+type RawSeed = Omit<Prospect, "research" | "pipeline" | "linkedin"> & { linkedin?: string } & {
   research: Partial<Prospect["research"]>;
   pipeline: Partial<Record<PipelineStepKey, boolean>>;
 };
@@ -512,6 +512,7 @@ export function normalizeProspect(raw: Partial<RawSeed> & { id: string }): Prosp
     website: raw.website ?? "",
     phone: raw.phone ?? "",
     email: raw.email ?? "",
+    linkedin: raw.linkedin ?? "",
     techStack: raw.techStack ?? [],
     opportunityValue: raw.opportunityValue ?? 0,
     status: raw.status ?? "researching",

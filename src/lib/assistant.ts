@@ -53,7 +53,8 @@ export const askAssistant = createServerFn({ method: "POST" })
   .validator(
     (input: {
       messages: AssistantMessage[];
-      prospect: Prospect;
+      prospect?: Prospect;
+      workspaceSummary?: string;
       settings: Pick<WorkspaceSettings, "senderName" | "senderCompany" | "bookingUrl" | "websiteUrl">;
     }) => input,
   )
@@ -69,9 +70,11 @@ export const askAssistant = createServerFn({ method: "POST" })
     const system = [
       `You are the in-dashboard analyst for ${data.settings.senderCompany || "Luuno"}, an intelligence-layer firm run by ${data.settings.senderName || "the operator"}. You are embedded in their internal prospecting tool.`,
       `Luuno's positioning: it installs a custom intelligence layer on top of a business's existing systems — augmenting, never replacing. Outreach style: evidence-led, specific, no hype, never mentions AI to prospects.`,
-      `You have the full record for the prospect currently open. Answer from it. Be direct, concrete and brief — the operator is working, not reading essays. Use short bullet lines for lists. If the record lacks something, say so plainly rather than inventing it. When drafting outreach or scripts, ground every claim in the record's evidence.`,
+      `Be direct, concrete and brief — the operator is working, not reading essays. Use short bullet lines for lists. If the record lacks something, say so plainly rather than inventing it. When drafting outreach or scripts, ground every claim in the record's evidence.`,
       `Booking link: ${data.settings.bookingUrl} · Website: ${data.settings.websiteUrl}`,
-      `PROSPECT RECORD:\n${prospectBrief(data.prospect)}`,
+      data.prospect
+        ? `You have the full record for the prospect currently open. Answer from it.\n\nPROSPECT RECORD:\n${prospectBrief(data.prospect)}`
+        : `You are in workspace mode: no single prospect is open. You have a summary of the whole pipeline below. Answer questions about priorities, workload and next actions from it. For deep questions about one company, suggest opening that prospect's Analyst tab, which carries its full record.\n\nWORKSPACE SUMMARY:\n${data.workspaceSummary || "No prospects yet."}`,
     ].join("\n\n");
 
     const trimmed = data.messages.slice(-12);

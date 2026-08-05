@@ -153,10 +153,11 @@ Aim for 2-4 sentences per field. One thin line reads as generic filler.
 Also include a "contact" key:
 { "phone": "", "email": "", "emailVerified": false, "linkedin": "" }
 - phone: the company's published main line, digits as published.
-- email: the single best outreach address found. Set emailVerified to true ONLY
-  if the address appears verbatim on an official primary source (their website,
-  BBB listing, government vendor profile). Pattern-inferred or data-broker
-  addresses stay emailVerified: false.
+- email: ALWAYS provide the single best outreach address - verified if found
+  verbatim on a primary source (set emailVerified: true), otherwise the most
+  probable inferred pattern (set emailVerified: false). Never leave this empty
+  when any domain is known; state the inference basis and any alternate pattern
+  inside decisionMaker.
 - linkedin: URL of the decision maker's personal profile if found, else the
   company page URL.
 Leave any unknown value as an empty string - never guess.
@@ -394,9 +395,10 @@ export function applyParsedResearch(prospect: Prospect, parsed: ParsedResearch) 
   if (parsed.contact) {
     if (!phone.trim() && parsed.contact.phone) phone = parsed.contact.phone;
     if (!linkedin.trim() && parsed.contact.linkedin) linkedin = parsed.contact.linkedin;
-    if (!email.trim() && parsed.contact.email && parsed.contact.emailVerified === true) {
-      email = parsed.contact.email;
-    }
+    // Operator decision: an empty email field helps nobody. The best candidate
+    // fills regardless of verification; the verified/unverified status lives in
+    // the decisionMaker text, and the operator owns the final check before send.
+    if (!email.trim() && parsed.contact.email) email = parsed.contact.email;
   }
 
   // Merge parsed audit sections. Only fields the response actually filled are

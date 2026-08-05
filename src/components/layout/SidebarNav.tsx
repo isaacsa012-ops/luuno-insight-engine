@@ -9,6 +9,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { openLuunoAgent } from "@/components/assistant/LuunoAgent";
+import { Sparkles } from "lucide-react";
+
 export const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { to: "/prospects", label: "Prospects", icon: Users, exact: false },
@@ -42,6 +45,17 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           </Link>
         );
       })}
+      <button
+        type="button"
+        onClick={() => {
+          openLuunoAgent();
+          onNavigate?.();
+        }}
+        className="mt-1 flex items-center gap-2.5 rounded-[8px] border border-border px-2.5 py-2 text-left text-[13px] text-muted-foreground transition-colors duration-150 hover:border-border-strong hover:text-foreground"
+      >
+        <Sparkles className="h-[15px] w-[15px] shrink-0" strokeWidth={1.75} />
+        <span className="truncate">Luuno Agent</span>
+      </button>
     </nav>
   );
 }

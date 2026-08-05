@@ -1,4 +1,4 @@
-
+import { useEffect, useState } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  
 /**
@@ -33,3 +33,32 @@ function buildClient(): SupabaseClient | null {
 export const supabase: SupabaseClient | null = buildClient();
 export const supabaseEnabled = supabase !== null;
  
+
+
+/**
+ * Display name of the signed-in teammate, derived from their login email.
+ * contact@ / info@ style inboxes fall back to the provided default (the
+ * workspace sender name); personal addresses use the capitalized local part
+ * (marvin@luuno.ai → "Marvin"). Offline mode returns the default.
+ */
+export function useSessionName(fallback: string): string {
+  const [name, setName] = useState(fallback);
+  useEffect(() => {
+    if (!supabaseEnabled || !supabase) return;
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled) return;
+      const email = data.user?.email ?? "";
+      const local = email.split("@")[0]?.toLowerCase() ?? "";
+      if (!local || ["contact", "info", "hello", "admin", "team"].includes(local)) {
+        setName(fallback);
+      } else {
+        setName(local.charAt(0).toUpperCase() + local.slice(1));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [fallback]);
+  return name;
+}
